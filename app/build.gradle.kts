@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.apptest"
-    compileSdk = 34
+    namespace = "com.example.supmap"
+    compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.apptest"
+        applicationId = "com.example.supmap"
         minSdk = 31
         targetSdk = 34
         versionCode = 1

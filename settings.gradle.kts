@@ -19,5 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "apptest"
+rootProject.name = "SUPMAP"
 include(":app")
+ 

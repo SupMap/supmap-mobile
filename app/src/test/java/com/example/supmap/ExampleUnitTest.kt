@@ -1,4 +1,4 @@
-package com.example.apptest
+package com.example.supmap
 
 import org.junit.Test
 
