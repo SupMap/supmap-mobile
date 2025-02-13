@@ -1,5 +1,7 @@
+// MainActivity.kt
 package com.example.supmap
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -8,12 +10,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         setContent {
+            // Récupérer le contexte pour lancer une nouvelle activité
+            val context = LocalContext.current
             var currentScreen by remember { mutableStateOf("login") }
 
             MaterialTheme {
@@ -23,11 +28,14 @@ class MainActivity : ComponentActivity() {
                 ) {
                     when (currentScreen) {
                         "login" -> LoginScreen(
-                            onLogin = { /* Handle login action */ },
+                            onLogin = {
+                                // Une fois connecté, lancez MapActivity
+                                context.startActivity(Intent(context, MapActivity::class.java))
+                            },
                             onNavigateToRegister = { currentScreen = "register" }
                         )
                         "register" -> InscriptionScreen(
-                            onInscription = { /* Handle registration action */ },
+                            onInscription = { /* Traitement de l'inscription */ },
                             onNavigateToLogin = { currentScreen = "login" }
                         )
                     }
