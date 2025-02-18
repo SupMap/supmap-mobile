@@ -1,6 +1,6 @@
-// MainActivity.kt
 package com.example.supmap
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -17,9 +17,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            // Récupérer le contexte pour lancer une nouvelle activité
             val context = LocalContext.current
-            var currentScreen by remember { mutableStateOf("login") }
+            val sharedPreferences = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
+            val token = sharedPreferences.getString("auth_token", null)
+
+            var currentScreen by remember { mutableStateOf(if (token != null) "map" else "login") }
 
             MaterialTheme {
                 Surface(
@@ -29,13 +31,12 @@ class MainActivity : ComponentActivity() {
                     when (currentScreen) {
                         "login" -> LoginScreen(
                             onLogin = {
-                                // Une fois connecté, lancez MapActivity
                                 context.startActivity(Intent(context, MapActivity::class.java))
                             },
                             onNavigateToRegister = { currentScreen = "register" }
                         )
                         "register" -> InscriptionScreen(
-                            onInscription = { /* Traitement de l'inscription */ },
+                            onInscriptionSuccess = { currentScreen = "login" },
                             onNavigateToLogin = { currentScreen = "login" }
                         )
                     }

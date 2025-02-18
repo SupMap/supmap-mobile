@@ -1,5 +1,6 @@
 package com.example.supmap
 
+import android.content.Context
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -10,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -17,17 +19,23 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
+import com.example.supmap.api.registerUser
 
 @Composable
 fun InscriptionScreen(
-    onInscription: () -> Unit = {},
-    onNavigateToLogin: () -> Unit = {}
+    onInscriptionSuccess: () -> Unit,
+    onNavigateToLogin: () -> Unit
 ) {
+    val context = LocalContext.current
     var username by remember { mutableStateOf("") }
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+
+    val coroutineScope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -37,7 +45,7 @@ fun InscriptionScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Logo SUPMAP agrandi
+        // Logo SUPMAP
         Image(
             painter = painterResource(id = R.drawable.logobleu),
             contentDescription = "Logo SupMap",
@@ -46,12 +54,12 @@ fun InscriptionScreen(
                 .padding(bottom = 20.dp)
         )
 
-        // Titre principal
+        // Titre
         Text(
             text = "Bienvenue parmi nous !",
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF3D2B7A), // Violet foncé
+            color = Color(0xFF3D2B7A),
             textAlign = TextAlign.Center
         )
 
@@ -72,16 +80,31 @@ fun InscriptionScreen(
 
         // Bouton d'inscription
         Button(
-            onClick = onInscription,
+            onClick = {
+                coroutineScope.launch {
+                    isLoading = true
+                    val success = registerUser(
+                        context = context,
+                        username = username,
+                        firstName = firstName,
+                        lastName = lastName,
+                        email = email,
+                        password = password
+                    )
+                    isLoading = false
+                    if (success) {
+                        onInscriptionSuccess()
+                    }
+                }
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFF15B4E) // Rouge foncé
-            )
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF15B4E)),
+            enabled = !isLoading
         ) {
             Text(
-                text = "S'inscrire",
+                text = if (isLoading) "Chargement..." else "S'inscrire",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
@@ -90,7 +113,7 @@ fun InscriptionScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Texte pour aller à la connexion (placé l’un en dessous de l’autre)
+        // Lien vers la connexion
         Text(
             text = "Vous possédez déjà un compte ?",
             color = Color.Black,
@@ -102,7 +125,7 @@ fun InscriptionScreen(
 
         Text(
             text = "Connectez-vous ici",
-            color = Color(0xFF3D2B7A), // Violet foncé
+            color = Color(0xFF3D2B7A),
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.clickable { onNavigateToLogin() }
@@ -110,7 +133,6 @@ fun InscriptionScreen(
     }
 }
 
-// Composant réutilisable pour les champs de saisie
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomTextField(value: String, onValueChange: (String) -> Unit, label: String, isPassword: Boolean = false) {
