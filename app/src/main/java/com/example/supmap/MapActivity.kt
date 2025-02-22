@@ -62,6 +62,9 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private val locationCache = mutableMapOf<String, com.google.maps.model.SnappedPoint>()
     private val coroutineScope = CoroutineScope(Dispatchers.Main + Job())
 
+    private lateinit var logoutButton: FloatingActionButton
+
+
     companion object {
         private const val FRAME_TIME = 1000L / 60L // 60 FPS
         private const val CACHE_SIZE_LIMIT = 100
@@ -109,6 +112,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun setupViews() {
         setupCenterButton()
         setupGoogleMap()
+        setupLogoutButton()
     }
 
     private fun setupCenterButton() {
@@ -141,6 +145,19 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
     }
+
+    private fun setupLogoutButton() {
+        logoutButton = findViewById(R.id.logoutButton)
+        logoutButton.setOnClickListener {
+            val sharedPreferences = getSharedPreferences("user_prefs", MODE_PRIVATE)
+            sharedPreferences.edit().remove("auth_token").apply() // Suppression du token
+
+            // Afficher un message et rediriger vers LoginScreen
+            Toast.makeText(this, "Déconnexion réussie", Toast.LENGTH_SHORT).show()
+            finish() // Ferme l'activité actuelle
+        }
+    }
+
 
     private fun setupGeoApiContext() {
         geoApiContext = GeoApiContext.Builder()

@@ -16,7 +16,7 @@ suspend fun loginUser(
     context: Context,
     email: String,
     password: String,
-    onSuccess: () -> Unit,
+    onSuccess: (String) -> Unit,  // 🔹 Spécifie que onSuccess reçoit un String (le token)
     onFailure: () -> Unit
 ) {
     withContext(Dispatchers.IO) {
@@ -35,35 +35,23 @@ suspend fun loginUser(
                 .post(body)
                 .build()
 
-            Log.d("API", "Envoi de la requête : $json")
-
             val response = client.newCall(request).execute()
+
             val responseBody = response.body?.string()
-            Log.d("API", "Réponse de l'API : $responseBody")
+            val jsonResponse = JSONObject(responseBody ?: "{}") // ✅ Parse JSON
 
-            if (response.isSuccessful && responseBody != null) {
-                val token = JSONObject(responseBody).getString("token")
-
-                // Stocker le token dans SharedPreferences
-                val sharedPreferences: SharedPreferences =
-                    context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
-                sharedPreferences.edit().putString("auth_token", token).apply()
-
+            if (response.isSuccessful && jsonResponse.has("token")) {
+                val token = jsonResponse.getString("token") // ✅ Récupère le token
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Connexion réussie !", Toast.LENGTH_SHORT).show()
-                    onSuccess()
+                    onSuccess(token) // ✅ Passe le token à onSuccess
                 }
             } else {
-                Log.e("API", "Erreur HTTP ${response.code}")
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Échec de la connexion : ${response.code}", Toast.LENGTH_LONG).show()
                     onFailure()
                 }
             }
         } catch (e: Exception) {
-            Log.e("API", "Erreur réseau", e)
             withContext(Dispatchers.Main) {
-                Toast.makeText(context, "Erreur réseau", Toast.LENGTH_LONG).show()
                 onFailure()
             }
         }

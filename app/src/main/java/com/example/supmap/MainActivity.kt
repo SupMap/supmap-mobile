@@ -19,9 +19,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             val context = LocalContext.current
             val sharedPreferences = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
-            val token = sharedPreferences.getString("auth_token", null)
-
-            var currentScreen by remember { mutableStateOf(if (token != null) "map" else "login") }
+            val token = remember { mutableStateOf(sharedPreferences.getString("auth_token", null)) }
+            var currentScreen by remember { mutableStateOf(if (token.value != null) "map" else "login") }
 
             MaterialTheme {
                 Surface(
@@ -31,14 +30,19 @@ class MainActivity : ComponentActivity() {
                     when (currentScreen) {
                         "login" -> LoginScreen(
                             onLogin = {
+                                sharedPreferences.edit().putString("auth_token", "your_token").apply()
+                                token.value = "your_token"
                                 context.startActivity(Intent(context, MapActivity::class.java))
                             },
                             onNavigateToRegister = { currentScreen = "register" }
                         )
                         "register" -> InscriptionScreen(
-                            onInscriptionSuccess = { currentScreen = "login" },
+                            onInscriptionSuccess = {
+                                currentScreen = "login"
+                            },
                             onNavigateToLogin = { currentScreen = "login" }
                         )
+                        "map" -> context.startActivity(Intent(context, MapActivity::class.java))
                     }
                 }
             }

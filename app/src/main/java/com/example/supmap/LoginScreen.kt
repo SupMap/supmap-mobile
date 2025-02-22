@@ -29,8 +29,10 @@ fun LoginScreen(
     onNavigateToRegister: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
     Column(
@@ -89,27 +91,35 @@ fun LoginScreen(
         Button(
             onClick = {
                 coroutineScope.launch {
+                    isLoading = true
                     loginUser(
                         context,
                         email,
                         password,
-                        onSuccess = { onLogin() },
-                        onFailure = {}
+                        onSuccess = { token ->
+                            sharedPreferences.edit().putString("auth_token", token).apply()
+                            isLoading = false
+                            onLogin()
+                        },
+                        onFailure = {
+                            isLoading = false
+                        }
                     )
                 }
             },
             modifier = Modifier.fillMaxWidth().height(50.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFF15B4E)
-            )
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF15B4E)),
+            enabled = !isLoading
         ) {
             Text(
-                text = "Se connecter",
+                text = if (isLoading) "Connexion..." else "Se connecter",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
         }
+
+
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -118,7 +128,7 @@ fun LoginScreen(
             color = Color(0xFF3D2B7A),
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.clickable { /* Ajoute une action ici */ }
+            modifier = Modifier.clickable { /* Ajouter action */ }
         )
 
         Spacer(modifier = Modifier.height(16.dp))
