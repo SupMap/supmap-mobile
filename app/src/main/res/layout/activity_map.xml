@@ -4,31 +4,79 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+
     <fragment
         android:id="@+id/map_view"
         android:name="com.google.android.gms.maps.SupportMapFragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/centerLocationButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentBottom="true"
-        android:layout_margin="16dp"
-        android:src="@android:drawable/ic_menu_mylocation"
-        app:fabSize="normal" />
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/logoutButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:layout_gravity="bottom|end"
         android:src="@drawable/logout"
-        android:contentDescription="Déconnexion"/>
+        android:contentDescription="Déconnexion"
+        app:fabSize="normal"
+        android:layout_margin="16dp"
+        android:layout_alignParentStart="true"
+        app:backgroundTint="@color/orange"
+        android:layout_alignParentTop="true" />
 
 
+
+    <LinearLayout
+        android:id="@+id/routePlannerContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp"
+        android:orientation="vertical"
+        android:elevation="8dp"
+        android:layout_alignParentBottom="true"
+        android:layout_margin="16dp"
+        android:clipToOutline="true"
+        android:background="@android:color/white"
+        android:alpha="0.85">
+
+
+        <EditText
+            android:id="@+id/startPoint"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:hint="Choisissez votre point de départ"
+            android:padding="12dp"
+            android:background="@android:color/white"
+            android:textColor="@android:color/black"
+            android:textSize="16sp"
+            android:elevation="4dp"
+            android:alpha="1" />
+
+
+        <EditText
+            android:id="@+id/destinationPoint"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:hint="Choisissez votre destination"
+            android:padding="12dp"
+            android:background="@android:color/white"
+            android:textColor="@android:color/black"
+            android:textSize="16sp"
+            android:layout_marginTop="8dp"
+            android:elevation="4dp"
+            android:alpha="1" />
+
+
+        <Button
+            android:id="@+id/startNavigationButton"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:text="Démarrer"
+            android:textStyle="bold"
+            android:textColor="@android:color/white"
+            android:backgroundTint="@color/bleu"
+            android:layout_marginTop="12dp"
+            android:elevation="4dp" />
+    </LinearLayout>
 
 </RelativeLayout>
