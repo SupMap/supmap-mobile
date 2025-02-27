@@ -29,6 +29,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var locationRequest: LocationRequest
     private lateinit var locationCallback: LocationCallback
     private lateinit var logoutButton: FloatingActionButton
+    private lateinit var clearRouteButton: FloatingActionButton
     private lateinit var startNavigationButton: Button
     private lateinit var startPointField: EditText
     private lateinit var destinationField: EditText
@@ -53,15 +54,22 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun setupViews() {
         logoutButton = findViewById(R.id.logoutButton)
+        clearRouteButton = findViewById(R.id.clearRouteButton)
         startNavigationButton = findViewById(R.id.startNavigationButton)
         startPointField = findViewById(R.id.startPoint)
         destinationField = findViewById(R.id.destinationPoint)
+
+        clearRouteButton.hide() // Cacher le bouton par défaut
 
         logoutButton.setOnClickListener {
             val sharedPreferences = getSharedPreferences("user_prefs", MODE_PRIVATE)
             sharedPreferences.edit().remove("auth_token").apply()
             Toast.makeText(this, "Déconnexion réussie", Toast.LENGTH_SHORT).show()
             finish()
+        }
+
+        clearRouteButton.setOnClickListener {
+            clearRouteAndReturnToLocation()
         }
 
         startNavigationButton.setOnClickListener {
@@ -74,6 +82,26 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                 Toast.makeText(this, "Veuillez entrer un point de départ et une destination", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    private fun clearRouteAndReturnToLocation() {
+        // Effacer la carte
+        googleMap.clear()
+
+        // Réinitialiser les champs de texte
+        startPointField.text.clear()
+        destinationField.text.clear()
+
+        // Réactiver le suivi de la position
+        isFollowingUserLocation = true
+
+        // Recentrer sur la position actuelle
+        currentLocation?.let { location ->
+            centerMapOnLocation(location)
+        }
+
+        // Cacher le bouton
+        clearRouteButton.hide()
     }
 
     private fun setupGoogleMap() {
@@ -188,6 +216,9 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                 val bounds = builder.build()
                 val padding = 100
                 googleMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding))
+
+                // Montrer le bouton clear
+                clearRouteButton.show()
             }
         } catch (e: Exception) {
             Toast.makeText(this, "Erreur lors de l'affichage de l'itinéraire", Toast.LENGTH_SHORT).show()
@@ -239,6 +270,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         if (checkLocationPermission()) {
             googleMap.isMyLocationEnabled = true
         }
+        clearRouteButton.hide()
     }
 
     private fun checkLocationPermission(): Boolean {
