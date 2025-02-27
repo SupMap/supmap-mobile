@@ -3,7 +3,6 @@ package com.example.supmap
 import android.location.Geocoder
 import android.location.Location
 import android.os.Bundle
-import android.os.Handler
 import android.os.Looper
 import android.widget.Button
 import android.widget.EditText
@@ -17,9 +16,10 @@ import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.*
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONObject
 import java.util.*
 
 class MapActivity : AppCompatActivity(), OnMapReadyCallback {
@@ -34,10 +34,12 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var destinationField: EditText
 
     private var currentLocation: Location? = null
-    private val coroutineScope = CoroutineScope(Dispatchers.Main)
+    private var isFollowingUserLocation = true
+    private val coroutineScope = CoroutineScope(Dispatchers.Main + Job())
 
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1
+        private const val GOOGLE_API_KEY = "AIzaSyBb9PMJCEl3drV8JSElmSp_SJmg9ul9tlQ" // Remplacez par votre clé API
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,7 +57,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         startPointField = findViewById(R.id.startPoint)
         destinationField = findViewById(R.id.destinationPoint)
 
-        // Gestion du bouton de déconnexion
         logoutButton.setOnClickListener {
             val sharedPreferences = getSharedPreferences("user_prefs", MODE_PRIVATE)
             sharedPreferences.edit().remove("auth_token").apply()
@@ -63,7 +64,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
             finish()
         }
 
-        // Gestion du bouton de navigation
         startNavigationButton.setOnClickListener {
             val start = startPointField.text.toString()
             val destination = destinationField.text.toString()
@@ -92,7 +92,9 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
             override fun onLocationResult(locationResult: LocationResult) {
                 locationResult.lastLocation?.let { location ->
                     currentLocation = location
-                    centerMapOnLocation(location)
+                    if (isFollowingUserLocation) {
+                        centerMapOnLocation(location)
+                    }
                 }
             }
         }
@@ -103,36 +105,128 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun getDirections(start: String, destination: String) {
         coroutineScope.launch {
-            val geocoder = Geocoder(this@MapActivity, Locale.getDefault())
+            try {
+                val geocoder = Geocoder(this@MapActivity, Locale.getDefault())
 
-            val startLocation = geocoder.getFromLocationName(start, 1)?.firstOrNull()
-            val destinationLocation = geocoder.getFromLocationName(destination, 1)?.firstOrNull()
+                val startLocation = geocoder.getFromLocationName(start, 1)?.firstOrNull()
+                val destinationLocation = geocoder.getFromLocationName(destination, 1)?.firstOrNull()
 
-            if (startLocation != null && destinationLocation != null) {
-                val startLatLng = LatLng(startLocation.latitude, startLocation.longitude)
-                val destinationLatLng = LatLng(destinationLocation.latitude, destinationLocation.longitude)
+                if (startLocation != null && destinationLocation != null) {
+                    val startLatLng = LatLng(startLocation.latitude, startLocation.longitude)
+                    val destinationLatLng = LatLng(destinationLocation.latitude, destinationLocation.longitude)
 
-                drawRouteOnMap(startLatLng, destinationLatLng)
-            } else {
-                Toast.makeText(this@MapActivity, "Impossible de trouver les emplacements", Toast.LENGTH_SHORT).show()
+                    isFollowingUserLocation = false
+                    fetchDirectionsAndDraw(startLatLng, destinationLatLng)
+                } else {
+                    Toast.makeText(this@MapActivity, "Impossible de trouver les emplacements", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this@MapActivity, "Erreur lors de la recherche des emplacements", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    private fun drawRouteOnMap(start: LatLng, destination: LatLng) {
-        googleMap.clear()
+    private fun fetchDirectionsAndDraw(origin: LatLng, destination: LatLng) {
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                val directionsApi = "https://maps.googleapis.com/maps/api/directions/json?" +
+                        "origin=${origin.latitude},${origin.longitude}" +
+                        "&destination=${destination.latitude},${destination.longitude}" +
+                        "&key=$GOOGLE_API_KEY"
 
-        googleMap.addMarker(MarkerOptions().position(start).title("Départ"))
-        googleMap.addMarker(MarkerOptions().position(destination).title("Destination"))
+                val client = OkHttpClient()
+                val request = Request.Builder()
+                    .url(directionsApi)
+                    .build()
 
-        val polylineOptions = PolylineOptions()
-            .add(start)
-            .add(destination)
-            .width(10f)
-            .color(android.graphics.Color.RED)
+                client.newCall(request).execute().use { response ->
+                    val jsonData = response.body?.string()
+                    withContext(Dispatchers.Main) {
+                        if (jsonData != null) {
+                            drawRouteFromDirections(jsonData, origin, destination)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MapActivity, "Erreur lors du calcul de l'itinéraire", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
-        googleMap.addPolyline(polylineOptions)
-        googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(start, 12f))
+    private fun drawRouteFromDirections(jsonData: String, origin: LatLng, destination: LatLng) {
+        try {
+            val jsonObject = JSONObject(jsonData)
+            val routes = jsonObject.getJSONArray("routes")
+
+            if (routes.length() > 0) {
+                googleMap.clear()
+
+                // Ajouter les marqueurs
+                googleMap.addMarker(MarkerOptions().position(origin).title("Départ"))
+                googleMap.addMarker(MarkerOptions().position(destination).title("Destination"))
+
+                // Obtenir le premier itinéraire
+                val route = routes.getJSONObject(0)
+                val overviewPolyline = route.getJSONObject("overview_polyline")
+                val points = overviewPolyline.getString("points")
+
+                // Décoder les points et créer la polyline
+                val decodedPath = decodePoly(points)
+                val polylineOptions = PolylineOptions()
+                    .addAll(decodedPath)
+                    .width(12f)
+                    .color(android.graphics.Color.BLUE)
+                    .geodesic(true)
+
+                googleMap.addPolyline(polylineOptions)
+
+                // Ajuster la caméra pour voir tout l'itinéraire
+                val builder = LatLngBounds.Builder()
+                decodedPath.forEach { builder.include(it) }
+                val bounds = builder.build()
+                val padding = 100
+                googleMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding))
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "Erreur lors de l'affichage de l'itinéraire", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun decodePoly(encoded: String): List<LatLng> {
+        val poly = ArrayList<LatLng>()
+        var index = 0
+        val len = encoded.length
+        var lat = 0
+        var lng = 0
+
+        while (index < len) {
+            var b: Int
+            var shift = 0
+            var result = 0
+            do {
+                b = encoded[index++].toInt() - 63
+                result = result or (b and 0x1f shl shift)
+                shift += 5
+            } while (b >= 0x20)
+            val dlat = if (result and 1 != 0) (result shr 1).inv() else result shr 1
+            lat += dlat
+
+            shift = 0
+            result = 0
+            do {
+                b = encoded[index++].toInt() - 63
+                result = result or (b and 0x1f shl shift)
+                shift += 5
+            } while (b >= 0x20)
+            val dlng = if (result and 1 != 0) (result shr 1).inv() else result shr 1
+            lng += dlng
+
+            val p = LatLng(lat.toDouble() / 1E5, lng.toDouble() / 1E5)
+            poly.add(p)
+        }
+        return poly
     }
 
     private fun centerMapOnLocation(location: Location) {
@@ -162,5 +256,10 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
             )
             false
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        coroutineScope.cancel()
     }
 }

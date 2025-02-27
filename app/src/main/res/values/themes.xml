@@ -10,6 +10,7 @@
         <item name="postSplashScreenTheme">@style/Base.Theme.SplashScreenApp</item>
     </style>
     <style name="Theme.SUPMAP" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
         <item name="colorPrimary">@color/orange</item>
         <item name="colorPrimaryVariant">@color/orange</item>
         <item name="colorOnPrimary">@android:color/white</item>
