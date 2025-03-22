@@ -4,9 +4,11 @@ import android.location.Geocoder
 import android.location.Location
 import android.os.Bundle
 import android.os.Looper
+import android.util.Log
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import com.google.android.gms.location.*
@@ -21,6 +23,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.util.*
+import com.example.supmap.api.getUserInfo
+import android.widget.TextView
 
 class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -28,11 +32,12 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationRequest: LocationRequest
     private lateinit var locationCallback: LocationCallback
-    private lateinit var logoutButton: FloatingActionButton
+    // private lateinit var logoutButton: FloatingActionButton
     private lateinit var clearRouteButton: FloatingActionButton
     private lateinit var startNavigationButton: Button
     private lateinit var startPointField: EditText
     private lateinit var destinationField: EditText
+    private lateinit var accountButton: FloatingActionButton
 
     private var currentLocation: Location? = null
     private var isFollowingUserLocation = true
@@ -53,19 +58,15 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun setupViews() {
-        logoutButton = findViewById(R.id.logoutButton)
+        accountButton = findViewById(R.id.accountButton)
         clearRouteButton = findViewById(R.id.clearRouteButton)
         startNavigationButton = findViewById(R.id.startNavigationButton)
         startPointField = findViewById(R.id.startPoint)
         destinationField = findViewById(R.id.destinationPoint)
-
         clearRouteButton.hide() // Cacher le bouton par défaut
 
-        logoutButton.setOnClickListener {
-            val sharedPreferences = getSharedPreferences("user_prefs", MODE_PRIVATE)
-            sharedPreferences.edit().remove("auth_token").apply()
-            Toast.makeText(this, "Déconnexion réussie", Toast.LENGTH_SHORT).show()
-            finish()
+        accountButton.setOnClickListener {
+            showUserAccountDialog()
         }
 
         clearRouteButton.setOnClickListener {
@@ -107,6 +108,73 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun setupGoogleMap() {
         val mapFragment = supportFragmentManager.findFragmentById(R.id.map_view) as SupportMapFragment
         mapFragment.getMapAsync(this)
+    }
+
+    private fun showUserAccountDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.user_account_dialog, null)
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .create()
+
+        // Références aux TextView pour les informations utilisateur
+        val userNameText = dialogView.findViewById<TextView>(R.id.userNameText)
+        val userUsernameText = dialogView.findViewById<TextView>(R.id.userUsernameText)
+        val userEmailText = dialogView.findViewById<TextView>(R.id.userEmailText)
+
+        // Par défaut, mettre un texte de chargement
+        userNameText.text = "Chargement..."
+        userUsernameText.text = "Chargement..."
+        userEmailText.text = "Chargement..."
+
+        // Configurer le bouton de déconnexion dans le dialogue
+        dialogView.findViewById<Button>(R.id.logoutButtonDialog).setOnClickListener {
+            val sharedPreferences = getSharedPreferences("user_prefs", MODE_PRIVATE)
+            sharedPreferences.edit().remove("auth_token").apply()
+            Toast.makeText(this, "Déconnexion réussie", Toast.LENGTH_SHORT).show()
+            dialog.dismiss()
+            finish()
+        }
+
+        // Afficher le dialogue
+        dialog.show()
+
+        // Récupérer le token
+        val sharedPreferences = getSharedPreferences("user_prefs", MODE_PRIVATE)
+        val token = sharedPreferences.getString("auth_token", null)
+
+        if (token != null) {
+            // Lancer la récupération des infos utilisateur en arrière-plan
+            coroutineScope.launch {
+                try {
+                    val userInfo = getUserInfo(this@MapActivity, token)
+
+                    if (userInfo != null) {
+                        // Mettre à jour les champs avec les informations récupérées
+                        userNameText.text = "Nom: ${userInfo.name} ${userInfo.secondName}"
+                        userUsernameText.text = "Pseudonyme: ${userInfo.username}"
+                        userEmailText.text = "Email: ${userInfo.email}"
+                    } else {
+                        // En cas d'erreur
+                        userNameText.text = "Impossible de récupérer les informations"
+                        userEmailText.text = "Veuillez réessayer plus tard"
+                        userUsernameText.text = ""
+                        Toast.makeText(
+                            this@MapActivity,
+                            "Erreur lors de la récupération des informations utilisateur",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                } catch (e: Exception) {
+                    Log.e("Auth", "Exception lors de la récupération des infos utilisateur", e)
+                    userNameText.text = "Erreur lors de la récupération"
+                    userUsernameText.text = "Erreur lors de la récupération"
+                    userEmailText.text = "Erreur lors de la récupération"
+                }
+            }
+        } else {
+            userNameText.text = "Non connecté"
+            userEmailText.text = "Veuillez vous connecter"
+        }
     }
 
     private fun setupLocationServices() {

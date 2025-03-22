@@ -2,6 +2,7 @@ package com.example.supmap
 
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -100,6 +101,8 @@ fun LoginScreen(
                             sharedPreferences.edit().putString("auth_token", token).apply()
                             isLoading = false
                             onLogin()
+                            // Après avoir stocké le token
+                            sharedPreferences.edit().putString("auth_token", token).apply()
                         },
                         onFailure = {
                             isLoading = false
