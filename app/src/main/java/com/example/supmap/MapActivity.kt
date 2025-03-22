@@ -1,5 +1,6 @@
 package com.example.supmap
 
+import android.content.res.ColorStateList
 import android.location.Geocoder
 import android.location.Location
 import android.os.Bundle
@@ -32,12 +33,15 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationRequest: LocationRequest
     private lateinit var locationCallback: LocationCallback
-    // private lateinit var logoutButton: FloatingActionButton
     private lateinit var clearRouteButton: FloatingActionButton
     private lateinit var startNavigationButton: Button
     private lateinit var startPointField: EditText
     private lateinit var destinationField: EditText
     private lateinit var accountButton: FloatingActionButton
+    private lateinit var drivingModeButton: Button
+    private lateinit var bicyclingModeButton: Button
+    private lateinit var walkingModeButton: Button
+    private var travelMode = "driving" // Mode par défaut: voiture
 
     private var currentLocation: Location? = null
     private var isFollowingUserLocation = true
@@ -63,6 +67,9 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         startNavigationButton = findViewById(R.id.startNavigationButton)
         startPointField = findViewById(R.id.startPoint)
         destinationField = findViewById(R.id.destinationPoint)
+        drivingModeButton = findViewById(R.id.drivingModeButton)
+        bicyclingModeButton = findViewById(R.id.bicyclingModeButton)
+        walkingModeButton = findViewById(R.id.walkingModeButton)
         clearRouteButton.hide() // Cacher le bouton par défaut
 
         accountButton.setOnClickListener {
@@ -73,6 +80,14 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
             clearRouteAndReturnToLocation()
         }
 
+        // Configurer les écouteurs pour les boutons de mode
+        drivingModeButton.setOnClickListener { setTravelMode("driving") }
+        bicyclingModeButton.setOnClickListener { setTravelMode("bicycling") }
+        walkingModeButton.setOnClickListener { setTravelMode("walking") }
+
+        // Sélectionner le mode par défaut
+        setTravelMode("driving")
+
         startNavigationButton.setOnClickListener {
             val start = startPointField.text.toString()
             val destination = destinationField.text.toString()
@@ -82,6 +97,23 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
             } else {
                 Toast.makeText(this, "Veuillez entrer un point de départ et une destination", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    // Ajouter cette méthode pour gérer la sélection du mode
+    private fun setTravelMode(mode: String) {
+        travelMode = mode
+
+        // Réinitialiser tous les boutons
+        drivingModeButton.backgroundTintList = ColorStateList.valueOf(resources.getColor(android.R.color.white, theme))
+        bicyclingModeButton.backgroundTintList = ColorStateList.valueOf(resources.getColor(android.R.color.white, theme))
+        walkingModeButton.backgroundTintList = ColorStateList.valueOf(resources.getColor(android.R.color.white, theme))
+
+        // Mettre en évidence le bouton sélectionné
+        when (mode) {
+            "driving" -> drivingModeButton.backgroundTintList = ColorStateList.valueOf(resources.getColor(R.color.bleu, theme))
+            "bicycling" -> bicyclingModeButton.backgroundTintList = ColorStateList.valueOf(resources.getColor(R.color.bleu, theme))
+            "walking" -> walkingModeButton.backgroundTintList = ColorStateList.valueOf(resources.getColor(R.color.bleu, theme))
         }
     }
 
@@ -228,6 +260,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                 val directionsApi = "https://maps.googleapis.com/maps/api/directions/json?" +
                         "origin=${origin.latitude},${origin.longitude}" +
                         "&destination=${destination.latitude},${destination.longitude}" +
+                        "&mode=${travelMode.lowercase()}" + // Ajout du mode de transport
                         "&key=$GOOGLE_API_KEY"
 
                 val client = OkHttpClient()

@@ -76,7 +76,50 @@
             android:layout_marginTop="8dp"
             android:elevation="4dp"
             android:alpha="1" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginTop="8dp">
 
+            <Button
+                android:id="@+id/drivingModeButton"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:backgroundTint="@color/bleu"
+                android:drawableTop="@drawable/ic_car"
+                android:paddingTop="8dp"
+                android:contentDescription="Voiture"
+                style="?attr/materialButtonOutlinedStyle"/>
+
+            <Button
+                android:id="@+id/bicyclingModeButton"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:backgroundTint="@android:color/white"
+                android:drawableTop="@drawable/ic_bike"
+                android:paddingTop="8dp"
+                android:contentDescription="Vélo"
+                style="?attr/materialButtonOutlinedStyle"/>
+
+            <Button
+                android:id="@+id/walkingModeButton"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:backgroundTint="@android:color/white"
+                android:drawableTop="@drawable/ic_walk"
+                android:paddingTop="8dp"
+                android:contentDescription="À pied"
+                style="?attr/materialButtonOutlinedStyle"/>
+        </LinearLayout>
 
         <Button
             android:id="@+id/startNavigationButton"
@@ -108,5 +151,4 @@
 
 
     </LinearLayout>
-
 </RelativeLayout>
