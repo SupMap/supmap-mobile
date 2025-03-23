@@ -100,7 +100,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-    // Ajouter cette méthode pour gérer la sélection du mode
     private fun setTravelMode(mode: String) {
         travelMode = mode
 
@@ -109,11 +108,25 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         bicyclingModeButton.backgroundTintList = ColorStateList.valueOf(resources.getColor(android.R.color.white, theme))
         walkingModeButton.backgroundTintList = ColorStateList.valueOf(resources.getColor(android.R.color.white, theme))
 
+        // Définir les icônes par défaut
+        drivingModeButton.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_car, 0, 0)
+        bicyclingModeButton.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_bike, 0, 0)
+        walkingModeButton.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_walk, 0, 0)
+
         // Mettre en évidence le bouton sélectionné
         when (mode) {
-            "driving" -> drivingModeButton.backgroundTintList = ColorStateList.valueOf(resources.getColor(R.color.bleu, theme))
-            "bicycling" -> bicyclingModeButton.backgroundTintList = ColorStateList.valueOf(resources.getColor(R.color.bleu, theme))
-            "walking" -> walkingModeButton.backgroundTintList = ColorStateList.valueOf(resources.getColor(R.color.bleu, theme))
+            "driving" -> {
+                drivingModeButton.backgroundTintList = ColorStateList.valueOf(resources.getColor(R.color.bleu, theme))
+                drivingModeButton.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_car_white, 0, 0)
+            }
+            "bicycling" -> {
+                bicyclingModeButton.backgroundTintList = ColorStateList.valueOf(resources.getColor(R.color.bleu, theme))
+                bicyclingModeButton.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_bike_white, 0, 0)
+            }
+            "walking" -> {
+                walkingModeButton.backgroundTintList = ColorStateList.valueOf(resources.getColor(R.color.bleu, theme))
+                walkingModeButton.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_walk_white, 0, 0)
+            }
         }
     }
 
