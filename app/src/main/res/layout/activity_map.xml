@@ -17,8 +17,10 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:src="@drawable/account_icon"
+        app:tint="@android:color/white"
         android:contentDescription="Compte utilisateur"
         app:fabSize="normal"
+        app:maxImageSize="30dp"
         android:layout_margin="16dp"
         android:layout_alignParentStart="true"
         app:backgroundTint="@color/orange"
@@ -75,7 +77,12 @@
             android:textSize="16sp"
             android:layout_marginTop="8dp"
             android:elevation="4dp"
-            android:alpha="1" />
+            android:alpha="1"
+            android:drawableStart="@drawable/ic_flag"
+            android:drawableLeft="@drawable/ic_flag"
+            android:drawablePadding="12dp"
+            android:paddingStart="12dp"
+            android:paddingLeft="12dp" />
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
