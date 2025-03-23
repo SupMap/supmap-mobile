@@ -35,7 +35,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var locationCallback: LocationCallback
     private lateinit var clearRouteButton: FloatingActionButton
     private lateinit var startNavigationButton: Button
-    private lateinit var startPointField: EditText
     private lateinit var destinationField: EditText
     private lateinit var accountButton: FloatingActionButton
     private lateinit var drivingModeButton: Button
@@ -65,7 +64,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         accountButton = findViewById(R.id.accountButton)
         clearRouteButton = findViewById(R.id.clearRouteButton)
         startNavigationButton = findViewById(R.id.startNavigationButton)
-        startPointField = findViewById(R.id.startPoint)
         destinationField = findViewById(R.id.destinationPoint)
         drivingModeButton = findViewById(R.id.drivingModeButton)
         bicyclingModeButton = findViewById(R.id.bicyclingModeButton)
@@ -88,16 +86,44 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         // Sélectionner le mode par défaut
         setTravelMode("driving")
 
+        // Modifiez startNavigationButton.setOnClickListener
         startNavigationButton.setOnClickListener {
-            val start = startPointField.text.toString()
             val destination = destinationField.text.toString()
 
-            if (start.isNotEmpty() && destination.isNotEmpty()) {
-                getDirections(start, destination)
+            if (destination.isNotEmpty()) {
+                if (currentLocation != null) {
+                    calculateRouteFromCurrentLocation(destination)
+                } else {
+                    Toast.makeText(this, "Position actuelle non disponible", Toast.LENGTH_SHORT).show()
+                }
             } else {
-                Toast.makeText(this, "Veuillez entrer un point de départ et une destination", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Veuillez entrer une destination", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    // Nouvelle méthode pour calculer un itinéraire depuis la position actuelle
+    private fun calculateRouteFromCurrentLocation(destination: String) {
+        currentLocation?.let { location ->
+            val startLatLng = LatLng(location.latitude, location.longitude)
+
+            coroutineScope.launch {
+                try {
+                    val geocoder = Geocoder(this@MapActivity, Locale.getDefault())
+                    val destinationLocation = geocoder.getFromLocationName(destination, 1)?.firstOrNull()
+
+                    if (destinationLocation != null) {
+                        val destinationLatLng = LatLng(destinationLocation.latitude, destinationLocation.longitude)
+                        isFollowingUserLocation = false
+                        fetchDirectionsAndDraw(startLatLng, destinationLatLng)
+                    } else {
+                        Toast.makeText(this@MapActivity, "Impossible de trouver la destination", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(this@MapActivity, "Erreur lors de la recherche de la destination", Toast.LENGTH_SHORT).show()
+                }
+            }
+        } ?: Toast.makeText(this, "Position actuelle non disponible", Toast.LENGTH_SHORT).show()
     }
 
     private fun setTravelMode(mode: String) {
@@ -135,7 +161,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         googleMap.clear()
 
         // Réinitialiser les champs de texte
-        startPointField.text.clear()
         destinationField.text.clear()
 
         // Réactiver le suivi de la position
@@ -244,28 +269,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-    private fun getDirections(start: String, destination: String) {
-        coroutineScope.launch {
-            try {
-                val geocoder = Geocoder(this@MapActivity, Locale.getDefault())
-
-                val startLocation = geocoder.getFromLocationName(start, 1)?.firstOrNull()
-                val destinationLocation = geocoder.getFromLocationName(destination, 1)?.firstOrNull()
-
-                if (startLocation != null && destinationLocation != null) {
-                    val startLatLng = LatLng(startLocation.latitude, startLocation.longitude)
-                    val destinationLatLng = LatLng(destinationLocation.latitude, destinationLocation.longitude)
-
-                    isFollowingUserLocation = false
-                    fetchDirectionsAndDraw(startLatLng, destinationLatLng)
-                } else {
-                    Toast.makeText(this@MapActivity, "Impossible de trouver les emplacements", Toast.LENGTH_SHORT).show()
-                }
-            } catch (e: Exception) {
-                Toast.makeText(this@MapActivity, "Erreur lors de la recherche des emplacements", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
 
     private fun fetchDirectionsAndDraw(origin: LatLng, destination: LatLng) {
         coroutineScope.launch(Dispatchers.IO) {

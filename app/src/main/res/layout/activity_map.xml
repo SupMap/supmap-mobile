@@ -4,14 +4,14 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-
+    <!-- Fragment de carte inchangé -->
     <fragment
         android:id="@+id/map_view"
         android:name="com.google.android.gms.maps.SupportMapFragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-
+    <!-- Bouton compte inchangé -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/accountButton"
         android:layout_width="wrap_content"
@@ -26,19 +26,6 @@
         app:backgroundTint="@color/orange"
         android:layout_alignParentTop="true" />
 
-   <!--
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/logoutButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:src="@drawable/logout"
-        android:contentDescription="Déconnexion"
-        app:fabSize="normal"
-        android:layout_margin="16dp"
-        android:layout_alignParentStart="true"
-        app:backgroundTint="@color/orange"
-        android:layout_alignParentTop="true" />
--->
     <LinearLayout
         android:id="@+id/routePlannerContainer"
         android:layout_width="match_parent"
@@ -52,20 +39,23 @@
         android:background="@android:color/white"
         android:alpha="0.85">
 
-
-        <EditText
-            android:id="@+id/startPoint"
+        <!-- Suppression du champ startPoint -->
+        <!-- Ajout d'un TextView informatif pour indiquer l'utilisation de la position actuelle -->
+        <TextView
+            android:id="@+id/currentLocationInfo"
             android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:hint="Choisissez votre point de départ"
-            android:padding="12dp"
-            android:background="@android:color/white"
+            android:layout_height="wrap_content"
+            android:text="Départ : Votre position actuelle"
             android:textColor="@android:color/black"
             android:textSize="16sp"
-            android:elevation="4dp"
-            android:alpha="1" />
+            android:drawableStart="@drawable/ic_my_location"
+            android:drawableLeft="@drawable/ic_my_location"
+            android:drawablePadding="12dp"
+            android:paddingStart="12dp"
+            android:paddingLeft="12dp"
+            android:padding="12dp" />
 
-
+        <!-- Champ destination inchangé -->
         <EditText
             android:id="@+id/destinationPoint"
             android:layout_width="match_parent"
@@ -83,6 +73,8 @@
             android:drawablePadding="12dp"
             android:paddingStart="12dp"
             android:paddingLeft="12dp" />
+
+        <!-- Reste du layout inchangé -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -155,7 +147,5 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
-
-
     </LinearLayout>
 </RelativeLayout>
