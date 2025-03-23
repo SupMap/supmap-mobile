@@ -124,7 +124,7 @@
             android:id="@+id/startNavigationButton"
             android:layout_width="match_parent"
             android:layout_height="50dp"
-            android:text="Démarrer"
+            android:text="Voir les trajets"
             android:textStyle="bold"
             android:textColor="@android:color/white"
             android:backgroundTint="@color/bleu"

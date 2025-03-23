@@ -6,6 +6,7 @@ import android.location.Location
 import android.os.Bundle
 import android.os.Looper
 import android.util.Log
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
@@ -40,6 +41,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var drivingModeButton: Button
     private lateinit var bicyclingModeButton: Button
     private lateinit var walkingModeButton: Button
+    private var currentDestination: String = "" // Pour stocker la destination actuelle
     private var travelMode = "driving" // Mode par défaut: voiture
 
     private var currentLocation: Location? = null
@@ -104,6 +106,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
     // Nouvelle méthode pour calculer un itinéraire depuis la position actuelle
     private fun calculateRouteFromCurrentLocation(destination: String) {
+        currentDestination = destination
         currentLocation?.let { location ->
             val startLatLng = LatLng(location.latitude, location.longitude)
 
@@ -116,6 +119,9 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                         val destinationLatLng = LatLng(destinationLocation.latitude, destinationLocation.longitude)
                         isFollowingUserLocation = false
                         fetchDirectionsAndDraw(startLatLng, destinationLatLng)
+                        startNavigationButton.visibility = View.GONE
+                        // Afficher le bouton pour effacer le trajet
+                        clearRouteButton.show()
                     } else {
                         Toast.makeText(this@MapActivity, "Impossible de trouver la destination", Toast.LENGTH_SHORT).show()
                     }
@@ -127,6 +133,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun setTravelMode(mode: String) {
+        val previousMode = travelMode
         travelMode = mode
 
         // Réinitialiser tous les boutons
@@ -154,6 +161,10 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                 walkingModeButton.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_walk_white, 0, 0)
             }
         }
+        // Si le mode a changé et qu'un itinéraire est déjà affiché, recalculer l'itinéraire
+        if (previousMode != mode && currentDestination.isNotEmpty() && clearRouteButton.visibility == View.VISIBLE) {
+            calculateRouteFromCurrentLocation(currentDestination)
+        }
     }
 
     private fun clearRouteAndReturnToLocation() {
@@ -162,6 +173,9 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // Réinitialiser les champs de texte
         destinationField.text.clear()
+
+        // Réinitialiser la destination actuelle
+        currentDestination = ""
 
         // Réactiver le suivi de la position
         isFollowingUserLocation = true
@@ -173,6 +187,10 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // Cacher le bouton
         clearRouteButton.hide()
+
+        // Faire réapparaître le bouton "Voir les trajets"
+        startNavigationButton.visibility = View.VISIBLE
+
     }
 
     private fun setupGoogleMap() {
