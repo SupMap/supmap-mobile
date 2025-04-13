@@ -4,14 +4,14 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Fragment de carte inchangé -->
+    <!-- Fragment de carte -->
     <fragment
         android:id="@+id/map_view"
         android:name="com.google.android.gms.maps.SupportMapFragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- Bouton compte inchangé -->
+    <!-- Bouton compte -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/accountButton"
         android:layout_width="wrap_content"
@@ -26,6 +26,7 @@
         app:backgroundTint="@color/orange"
         android:layout_alignParentTop="true" />
 
+    <!-- Panneau de planification d'itinéraire -->
     <LinearLayout
         android:id="@+id/routePlannerContainer"
         android:layout_width="match_parent"
@@ -39,8 +40,7 @@
         android:background="@android:color/white"
         android:alpha="0.85">
 
-        <!-- Suppression du champ startPoint -->
-        <!-- Ajout d'un TextView informatif pour indiquer l'utilisation de la position actuelle -->
+        <!-- Info position actuelle -->
         <TextView
             android:id="@+id/currentLocationInfo"
             android:layout_width="match_parent"
@@ -55,7 +55,7 @@
             android:paddingLeft="12dp"
             android:padding="12dp" />
 
-        <!-- Champ destination inchangé -->
+        <!-- Champ destination -->
         <EditText
             android:id="@+id/destinationPoint"
             android:layout_width="match_parent"
@@ -74,7 +74,7 @@
             android:paddingStart="12dp"
             android:paddingLeft="12dp" />
 
-        <!-- Reste du layout inchangé -->
+        <!-- Boutons mode de transport -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -92,7 +92,7 @@
                 android:drawableTop="@drawable/ic_car"
                 android:paddingTop="8dp"
                 android:contentDescription="Voiture"
-                style="?attr/materialButtonOutlinedStyle"/>
+                style="?attr/materialButtonOutlinedStyle" />
 
             <Button
                 android:id="@+id/bicyclingModeButton"
@@ -105,7 +105,7 @@
                 android:drawableTop="@drawable/ic_bike"
                 android:paddingTop="8dp"
                 android:contentDescription="Vélo"
-                style="?attr/materialButtonOutlinedStyle"/>
+                style="?attr/materialButtonOutlinedStyle" />
 
             <Button
                 android:id="@+id/walkingModeButton"
@@ -117,9 +117,10 @@
                 android:drawableTop="@drawable/ic_walk"
                 android:paddingTop="8dp"
                 android:contentDescription="À pied"
-                style="?attr/materialButtonOutlinedStyle"/>
+                style="?attr/materialButtonOutlinedStyle" />
         </LinearLayout>
 
+        <!-- Bouton Voir les trajets -->
         <Button
             android:id="@+id/startNavigationButton"
             android:layout_width="match_parent"
@@ -131,6 +132,7 @@
             android:layout_marginTop="12dp"
             android:elevation="4dp" />
 
+        <!-- Bouton effacer l'itinéraire -->
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/clearRouteButton"
             android:layout_width="wrap_content"
@@ -148,4 +150,94 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
     </LinearLayout>
+
+    <!-- Bouton "On y va" -->
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/startNavigationModeButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentRight="true"
+        android:layout_above="@id/routePlannerContainer"
+        android:layout_margin="16dp"
+        android:text="On y va"
+        android:textColor="@android:color/white"
+        app:icon="@drawable/ic_navigation"
+        app:iconTint="@android:color/white"
+        app:backgroundTint="@android:color/holo_green_dark"
+        android:visibility="gone" />
+
+    <!-- Conteneur du mode navigation (IMPORTANT: DERNIER ÉLÉMENT POUR ÊTRE AU-DESSUS) -->
+    <RelativeLayout
+        android:id="@+id/navigationModeContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        android:elevation="10dp">
+
+        <!-- Bandeau d'instructions en haut -->
+        <LinearLayout
+            android:id="@+id/navigationInstructionsPanel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@color/bleu"
+            android:padding="16dp"
+            android:elevation="8dp">
+
+            <!-- Instruction principale -->
+            <TextView
+                android:id="@+id/navigationInstructionText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Suivez l'itinéraire"
+                android:textColor="@android:color/white"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:gravity="center_vertical"
+                android:drawableStart="@drawable/ic_straight"
+                android:drawableLeft="@drawable/ic_straight"
+                android:drawablePadding="16dp" />
+
+            <!-- Distance et temps -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
+
+                <TextView
+                    android:id="@+id/navigationDistanceText"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="0,5 km"
+                    android:textColor="@android:color/white"
+                    android:textSize="14sp" />
+
+                <TextView
+                    android:id="@+id/navigationEtaText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Arrivée : 15:30"
+                    android:textColor="@android:color/white"
+                    android:textSize="14sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Bouton pour quitter la navigation -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/exitNavigationButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentRight="true"
+            android:layout_alignParentBottom="true"
+            android:layout_margin="16dp"
+            android:src="@drawable/ic_close"
+            app:backgroundTint="@android:color/white"
+            app:tint="@android:color/black"
+            android:contentDescription="Quitter la navigation"
+            app:fabSize="normal" />
+    </RelativeLayout>
 </RelativeLayout>

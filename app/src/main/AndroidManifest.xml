@@ -20,7 +20,7 @@
 
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyBb9PMJCEl3drV8JSElmSp_SJmg9ul9tlQ"/>
+            android:value="AIzaSyCvN0DIzZqhtYovIO-M62E9fwsAKiGcP4g" />
 
         <activity
             android:name=".MainActivity"
@@ -34,9 +34,9 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".MapActivity"
+            android:name=".ui.map.MapActivity"
             android:exported="false"
-            android:theme="@style/Theme.SUPMAP"/>
+            android:theme="@style/Theme.SUPMAP" />
     </application>
 
 </manifest>

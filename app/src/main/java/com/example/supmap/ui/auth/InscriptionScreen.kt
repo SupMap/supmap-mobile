@@ -1,11 +1,10 @@
-package com.example.supmap
+package com.example.supmap.ui.auth
 
-import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,15 +18,18 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.launch
-import com.example.supmap.api.registerUser
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.supmap.R
 
 @Composable
 fun InscriptionScreen(
     onInscriptionSuccess: () -> Unit,
-    onNavigateToLogin: () -> Unit
+    onNavigateToLogin: () -> Unit,
+    viewModel: RegisterViewModel = viewModel(factory = RegisterViewModel.Factory(LocalContext.current))
 ) {
     val context = LocalContext.current
+    val registerState = viewModel.registerState.collectAsState().value
+
     var username by remember { mutableStateOf("") }
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
@@ -35,7 +37,30 @@ fun InscriptionScreen(
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
 
-    val coroutineScope = rememberCoroutineScope()
+    // Gérer les changements d'état
+    LaunchedEffect(registerState) {
+        when (registerState) {
+            is RegisterState.Loading -> {
+                isLoading = true
+            }
+
+            is RegisterState.Success -> {
+                isLoading = false
+                Toast.makeText(context, "Inscription réussie !", Toast.LENGTH_SHORT).show()
+                onInscriptionSuccess()
+                viewModel.resetState()
+            }
+
+            is RegisterState.Error -> {
+                isLoading = false
+                Toast.makeText(context, registerState.message, Toast.LENGTH_LONG).show()
+            }
+
+            else -> {
+                isLoading = false
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -66,7 +91,11 @@ fun InscriptionScreen(
         Spacer(modifier = Modifier.height(32.dp))
 
         // Champs de saisie
-        CustomTextField(value = username, onValueChange = { username = it }, label = "Nom d'utilisateur")
+        CustomTextField(
+            value = username,
+            onValueChange = { username = it },
+            label = "Nom d'utilisateur"
+        )
         Spacer(modifier = Modifier.height(12.dp))
         CustomTextField(value = firstName, onValueChange = { firstName = it }, label = "Prénom")
         Spacer(modifier = Modifier.height(12.dp))
@@ -74,34 +103,26 @@ fun InscriptionScreen(
         Spacer(modifier = Modifier.height(12.dp))
         CustomTextField(value = email, onValueChange = { email = it }, label = "Email")
         Spacer(modifier = Modifier.height(12.dp))
-        CustomTextField(value = password, onValueChange = { password = it }, label = "Mot de passe", isPassword = true)
+        CustomTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = "Mot de passe",
+            isPassword = true
+        )
 
         Spacer(modifier = Modifier.height(20.dp))
 
         // Bouton d'inscription
         Button(
             onClick = {
-                coroutineScope.launch {
-                    isLoading = true
-                    val success = registerUser(
-                        context = context,
-                        username = username,
-                        firstName = firstName,
-                        lastName = lastName,
-                        email = email,
-                        password = password
-                    )
-                    isLoading = false
-                    if (success) {
-                        onInscriptionSuccess()
-                    }
-                }
+                viewModel.register(username, firstName, lastName, email, password)
             },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF15B4E)),
-            enabled = !isLoading
+            enabled = !isLoading && username.isNotEmpty() && firstName.isNotEmpty() &&
+                    lastName.isNotEmpty() && email.isNotEmpty() && password.isNotEmpty()
         ) {
             Text(
                 text = if (isLoading) "Chargement..." else "S'inscrire",
@@ -135,7 +156,12 @@ fun InscriptionScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CustomTextField(value: String, onValueChange: (String) -> Unit, label: String, isPassword: Boolean = false) {
+fun CustomTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    isPassword: Boolean = false
+) {
     TextField(
         value = value,
         onValueChange = onValueChange,

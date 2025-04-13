@@ -1,13 +1,10 @@
-package com.example.supmap
+package com.example.supmap.ui.auth
 
-import android.content.Context
-import android.content.Intent
-import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,21 +17,46 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.supmap.api.loginUser
-import kotlinx.coroutines.launch
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.supmap.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
-    onLogin: () -> Unit = {},
-    onNavigateToRegister: () -> Unit = {}
+    onLogin: () -> Unit,
+    onNavigateToRegister: () -> Unit,
+    viewModel: LoginViewModel = viewModel(factory = LoginViewModel.Factory(LocalContext.current))
 ) {
     val context = LocalContext.current
-    val sharedPreferences = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
+    val loginState = viewModel.loginState.collectAsState().value
+
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
+
+    // Gérer les changements d'état
+    LaunchedEffect(loginState) {
+        when (loginState) {
+            is LoginState.Loading -> {
+                isLoading = true
+            }
+
+            is LoginState.Success -> {
+                isLoading = false
+                onLogin()
+                viewModel.resetState()
+            }
+
+            is LoginState.Error -> {
+                isLoading = false
+                Toast.makeText(context, loginState.message, Toast.LENGTH_LONG).show()
+            }
+
+            else -> {
+                isLoading = false
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -47,7 +69,9 @@ fun LoginScreen(
         Image(
             painter = painterResource(id = R.drawable.logobleu),
             contentDescription = "Logo SupMap",
-            modifier = Modifier.size(150.dp).padding(bottom = 20.dp)
+            modifier = Modifier
+                .size(150.dp)
+                .padding(bottom = 20.dp)
         )
 
         Text(
@@ -91,28 +115,13 @@ fun LoginScreen(
 
         Button(
             onClick = {
-                coroutineScope.launch {
-                    isLoading = true
-                    loginUser(
-                        context,
-                        email,
-                        password,
-                        onSuccess = { token ->
-                            sharedPreferences.edit().putString("auth_token", token).apply()
-                            isLoading = false
-                            onLogin()
-                            // Après avoir stocké le token
-                            sharedPreferences.edit().putString("auth_token", token).apply()
-                        },
-                        onFailure = {
-                            isLoading = false
-                        }
-                    )
-                }
+                viewModel.login(email, password)
             },
-            modifier = Modifier.fillMaxWidth().height(50.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF15B4E)),
-            enabled = !isLoading
+            enabled = !isLoading && email.isNotEmpty() && password.isNotEmpty()
         ) {
             Text(
                 text = if (isLoading) "Connexion..." else "Se connecter",
@@ -122,8 +131,6 @@ fun LoginScreen(
             )
         }
 
-
-
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
@@ -131,7 +138,7 @@ fun LoginScreen(
             color = Color(0xFF3D2B7A),
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.clickable { /* Ajouter action */ }
+            modifier = Modifier.clickable { /* Fonctionnalité à ajouter */ }
         )
 
         Spacer(modifier = Modifier.height(16.dp))

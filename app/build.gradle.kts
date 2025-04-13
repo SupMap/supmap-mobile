@@ -51,10 +51,12 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
 
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
+
     implementation("com.google.android.gms:play-services-maps:18.1.0")
-    implementation ("com.google.maps.android:android-maps-utils:2.3.0")
-    implementation ("com.google.maps:google-maps-services:2.1.2")
-    implementation ("org.slf4j:slf4j-simple:1.7.32")
+    implementation("com.google.maps.android:android-maps-utils:2.3.0")
+    implementation("com.google.maps:google-maps-services:2.1.2")
+    implementation("org.slf4j:slf4j-simple:1.7.32")
 
     // OpenStreetMap OSMDroid
     implementation("org.osmdroid:osmdroid-android:6.1.14")

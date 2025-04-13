@@ -1,4 +1,4 @@
-package com.example.supmap.api
+package com.example.supmap.ui.auth
 
 import android.content.Context
 import android.util.Log
@@ -16,10 +16,17 @@ suspend fun getUserInfo(
         try {
             val url = "http://10.0.2.2:8080/api/user/info"
 
+            // Formater correctement le token
+            val formattedToken = if (token.startsWith("Bearer ", ignoreCase = true)) {
+                token
+            } else {
+                "Bearer $token"
+            }
+
             val client = OkHttpClient()
             val request = Request.Builder()
                 .url(url)
-                .header("Authorization", token) // Envoyer le token tel quel
+                .header("Authorization", formattedToken)
                 .get()
                 .build()
 
@@ -36,7 +43,10 @@ suspend fun getUserInfo(
                     email = jsonObject.optString("email", "")
                 )
             } else {
-                Log.e("API", "Erreur HTTP ${response.code}: ${responseBody ?: "Pas de corps dans la réponse"}")
+                Log.e(
+                    "API",
+                    "Erreur HTTP ${response.code}: ${responseBody ?: "Pas de corps dans la réponse"}"
+                )
                 return@withContext null
             }
         } catch (e: Exception) {
