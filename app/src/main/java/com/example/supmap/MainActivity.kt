@@ -15,9 +15,12 @@ import com.example.supmap.data.repository.AuthService
 import com.example.supmap.ui.auth.InscriptionScreen
 import com.example.supmap.ui.auth.LoginScreen
 import com.example.supmap.ui.map.MapActivity
+import com.google.android.libraries.places.api.Places
+import com.google.android.libraries.places.api.net.PlacesClient
 
 class MainActivity : ComponentActivity() {
     private lateinit var authService: AuthService
+    private lateinit var placesClient: PlacesClient
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -25,6 +28,12 @@ class MainActivity : ComponentActivity() {
         // Initialiser le module réseau
         NetworkModule.initialize(applicationContext)
         authService = AuthService(applicationContext)
+
+        // Initialiser Places SDK avec la même clé API que Google Maps
+        if (!Places.isInitialized()) {
+            Places.initialize(applicationContext, getString(R.string.google_maps_key))
+        }
+        placesClient = Places.createClient(this)
 
         setContent {
             val context = LocalContext.current

@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">SUPMAP</string>
+    <string name="google_maps_key">AIzaSyCvN0DIzZqhtYovIO-M62E9fwsAKiGcP4g</string>
 </resources>

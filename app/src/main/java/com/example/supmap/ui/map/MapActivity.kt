@@ -3,11 +3,16 @@ package com.example.supmap.ui.map
 import android.content.Context
 import android.content.Intent
 import android.content.res.ColorStateList
-import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import android.widget.*
+import android.widget.AutoCompleteTextView
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.RelativeLayout
+import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -16,20 +21,26 @@ import androidx.lifecycle.lifecycleScope
 import com.example.supmap.MainActivity
 import com.example.supmap.R
 import com.example.supmap.ui.auth.getUserInfo
+import com.example.supmap.utils.PermissionHandler
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
-import com.google.android.gms.maps.model.*
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
+import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.maps.model.PolylineOptions
+import com.google.android.libraries.places.api.Places
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
-import java.util.*
-import androidx.activity.result.contract.ActivityResultContracts
-import com.example.supmap.utils.PermissionHandler
+import java.util.Calendar
+import java.util.Locale
+
 
 class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -42,7 +53,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     // UI Elements
     private lateinit var clearRouteButton: FloatingActionButton
     private lateinit var startNavigationButton: Button
-    private lateinit var destinationField: EditText
     private lateinit var accountButton: FloatingActionButton
     private lateinit var drivingModeButton: Button
     private lateinit var bicyclingModeButton: Button
@@ -55,6 +65,9 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var exitNavigationButton: FloatingActionButton
     private lateinit var routePlannerContainer: LinearLayout
     private lateinit var permissionHandler: PermissionHandler
+    private lateinit var destinationField: AutoCompleteTextView
+    private lateinit var autocompleteManager: PlaceAutocompleteManager
+    private var selectedDestination = ""
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -74,6 +87,10 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Initialiser Places SDK si ce n'est pas déjà fait
+        if (!Places.isInitialized()) {
+            Places.initialize(applicationContext, getString(R.string.google_maps_key))
+        }
 
         // Vérifier si l'utilisateur est connecté
         val sharedPreferences = getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
@@ -119,6 +136,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    // Fonction setupViews() optimisée
     private fun setupViews() {
         // Initialiser les références UI
         accountButton = findViewById(R.id.accountButton)
@@ -140,6 +158,22 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         clearRouteButton.hide()
         startNavigationModeButton.visibility = View.GONE
 
+        // Initialiser le PlacesClient
+        val placesClient = Places.createClient(this)
+
+        // Initialiser et configurer le gestionnaire d'autocomplétion
+        autocompleteManager = PlaceAutocompleteManager(
+            context = this,
+            placesClient = placesClient,
+            lifecycleScope = lifecycleScope,
+            onPlaceSelected = { placeName ->
+                selectedDestination = placeName
+            }
+        )
+
+        // Configurer l'autocomplétion
+        autocompleteManager.setupAutoComplete(destinationField)
+
         // Configurer les listeners
         accountButton.setOnClickListener {
             showUserAccountDialog()
@@ -147,6 +181,8 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
         clearRouteButton.setOnClickListener {
             viewModel.clearRoute()
+            destinationField.setText("")
+            selectedDestination = ""
         }
 
         startNavigationModeButton.setOnClickListener {
@@ -161,12 +197,13 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         bicyclingModeButton.setOnClickListener { viewModel.setTravelMode("bicycling") }
         walkingModeButton.setOnClickListener { viewModel.setTravelMode("walking") }
 
+        // Si vous préférez garder le bouton pour lancer la recherche
         startNavigationButton.setOnClickListener {
-            val destination = destinationField.text.toString()
-            if (destination.isNotEmpty()) {
-                viewModel.calculateRoute(destination)
+            if (selectedDestination.isNotEmpty()) {
+                viewModel.calculateRoute(selectedDestination)
             } else {
-                Toast.makeText(this, "Veuillez entrer une destination", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Veuillez sélectionner une destination", Toast.LENGTH_SHORT)
+                    .show()
             }
         }
     }
