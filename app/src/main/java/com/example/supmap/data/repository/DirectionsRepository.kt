@@ -8,6 +8,7 @@ import com.example.supmap.data.api.Instruction
 import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.example.supmap.data.api.DirectionsResponse
 
 class DirectionsRepository(private val context: Context) {
 
@@ -23,7 +24,7 @@ class DirectionsRepository(private val context: Context) {
         origin: LatLng,
         destination: LatLng,
         mode: String
-    ): Pair<List<LatLng>, List<Instruction>>? {
+    ): Pair<DirectionsResponse, List<Instruction>>? {
         return withContext(Dispatchers.IO) {
             try {
                 // Format des coordonnées pour l'API
@@ -71,12 +72,16 @@ class DirectionsRepository(private val context: Context) {
                     val directionsResponse = response.body()
                     Log.d(TAG, "Réponse reçue: $directionsResponse")
 
+                    // Utiliser l'itinéraire le plus rapide pour les instructions par défaut
                     val routeData = directionsResponse?.fastest
 
                     if (routeData != null && !routeData.paths.isNullOrEmpty()) {
                         val path = routeData.paths!![0]
-                        val points = decodePoly(path.points)
-                        return@withContext Pair(points, path.instructions ?: emptyList())
+                        // Retourner la réponse complète et les instructions du fastest pour la compatibilité
+                        return@withContext Pair(
+                            directionsResponse!!,
+                            path.instructions ?: emptyList()
+                        )
                     } else {
                         Log.e(TAG, "Pas de chemin trouvé dans la réponse")
                     }

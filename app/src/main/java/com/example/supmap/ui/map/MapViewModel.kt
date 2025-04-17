@@ -8,30 +8,21 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.supmap.data.api.Instruction
+import com.example.supmap.data.api.Path
 import com.example.supmap.data.repository.DirectionsRepository
 import com.example.supmap.util.LocationService
 import com.google.android.gms.maps.model.LatLng
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.*
 
-data class MapUiState(
-    val isLoading: Boolean = false,
-    val hasRoute: Boolean = false,
-    val isNavigationMode: Boolean = false,
-    val isFollowingUser: Boolean = true,
-    val travelMode: String = "driving",
-    val currentDestination: String = "",
-    val routePoints: List<LatLng> = emptyList(),
-    val routeSegments: List<RouteSegment> = emptyList(),
-    val startPoint: LatLng? = null,
-    val endPoint: LatLng? = null,
-    val currentLocation: Location? = null,
-    val errorMessage: String? = null,
-    val isRecalculation: Boolean = false  // Nouveau flag
+data class RouteOption(
+    val label: String,
+    val type: String, // "fastest", "noToll", "economical"
+    val path: Path,
+    val points: List<LatLng>,
+    val segments: List<RouteSegment>
 )
-
 
 class MapViewModel(
     private val context: Context,
@@ -73,19 +64,42 @@ class MapViewModel(
     }
 
     fun setTravelMode(mode: String) {
-        val previousMode = _uiState.value.travelMode
-        _uiState.update { it.copy(travelMode = mode) }
+        _uiState.update {
+            it.copy(
+                travelMode = mode,
+                // Réinitialiser les itinéraires quand on change de mode
+                availableRoutes = emptyList()
+            )
+        }
 
-        // Si un itinéraire est actif et que le mode a changé, recalculer
-        if (previousMode != mode && _uiState.value.currentDestination.isNotEmpty() &&
-            _uiState.value.routePoints.isNotEmpty()
-        ) {
-            // Passer true pour indiquer que c'est un recalcul
-            calculateRoute(_uiState.value.currentDestination, true)
+        // Recalculer l'itinéraire avec le nouveau mode si une destination est définie
+        val destination = _uiState.value.currentDestination
+        if (destination.isNotEmpty()) {
+            calculateRoute(destination)
         }
     }
 
+    // Mettez à jour MapUiState pour inclure les nouveaux champs
+    data class MapUiState(
+        val isLoading: Boolean = false,
+        val hasRoute: Boolean = false,
+        val isNavigationMode: Boolean = false,
+        val isFollowingUser: Boolean = true,
+        val travelMode: String = "driving",
+        val currentDestination: String = "",
+        val routePoints: List<LatLng> = emptyList(),
+        val routeSegments: List<RouteSegment> = emptyList(),
+        val startPoint: LatLng? = null,
+        val endPoint: LatLng? = null,
+        val currentLocation: Location? = null,
+        val errorMessage: String? = null,
+        val isRecalculation: Boolean = false,
+        // Nouveaux champs pour les itinéraires multiples
+        val availableRoutes: List<RouteOption> = emptyList(),
+        val selectedRouteIndex: Int = 0
+    )
 
+    // Dans la classe MapViewModel, modifiez la méthode calculateRoute:
     fun calculateRoute(destination: String, isRecalculation: Boolean = false) {
         viewModelScope.launch {
             try {
@@ -94,7 +108,7 @@ class MapViewModel(
                         isLoading = true,
                         currentDestination = destination,
                         isFollowingUser = false,
-                        isRecalculation = isRecalculation  // Définir le flag
+                        isRecalculation = isRecalculation
                     )
                 }
 
@@ -139,28 +153,86 @@ class MapViewModel(
                 )
 
                 if (result != null) {
-                    val (points, instructions) = result
+                    // Extraire la réponse de l'API
+                    val directionResponse = result.first
 
-                    // Créer des segments avec instructions
-                    val segments = mutableListOf<RouteSegment>()
-                    for (instruction in instructions) {
-                        if (instruction.point_index < points.size) {
-                            val point = points[instruction.point_index]
-                            segments.add(RouteSegment(point, instruction.text))
-                        }
+                    // Liste pour stocker les différentes options d'itinéraires
+                    val routeOptions = mutableListOf<RouteOption>()
+
+                    // Traiter l'itinéraire le plus rapide s'il existe
+                    directionResponse.fastest?.paths?.firstOrNull()?.let { path ->
+                        val points = directionsRepository.decodePoly(path.points)
+                        val segments =
+                            createRouteSegments(points, path.instructions, destinationLatLng)
+                        routeOptions.add(
+                            RouteOption(
+                                label = "Meilleur itin.",
+                                type = "fastest",
+                                path = path,
+                                points = points,
+                                segments = segments
+                            )
+                        )
                     }
-                    segments.add(RouteSegment(destinationLatLng, "Vous êtes arrivé à destination"))
+
+                    // Traiter l'itinéraire sans péage s'il existe
+                    directionResponse.noToll?.paths?.firstOrNull()?.let { path ->
+                        val points = directionsRepository.decodePoly(path.points)
+                        val segments =
+                            createRouteSegments(points, path.instructions, destinationLatLng)
+                        routeOptions.add(
+                            RouteOption(
+                                label = "Sans péage",
+                                type = "noToll",
+                                path = path,
+                                points = points,
+                                segments = segments
+                            )
+                        )
+                    }
+
+                    // Traiter l'itinéraire économique s'il existe
+                    directionResponse.economical?.paths?.firstOrNull()?.let { path ->
+                        val points = directionsRepository.decodePoly(path.points)
+                        val segments =
+                            createRouteSegments(points, path.instructions, destinationLatLng)
+                        routeOptions.add(
+                            RouteOption(
+                                label = "Économique",
+                                type = "economical",
+                                path = path,
+                                points = points,
+                                segments = segments
+                            )
+                        )
+                    }
+
+                    // Si aucun itinéraire n'est disponible
+                    if (routeOptions.isEmpty()) {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                errorMessage = "Aucun itinéraire disponible"
+                            )
+                        }
+                        return@launch
+                    }
+
+                    // Utilisez le premier itinéraire par défaut
+                    val selectedOption = routeOptions[0]
 
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            routePoints = points,
-                            routeSegments = segments,
+                            routePoints = selectedOption.points,
+                            routeSegments = selectedOption.segments,
                             startPoint = startLatLng,
                             endPoint = destinationLatLng,
                             hasRoute = true,
                             errorMessage = null,
-                            isRecalculation = isRecalculation
+                            isRecalculation = isRecalculation,
+                            availableRoutes = routeOptions,
+                            selectedRouteIndex = 0
                         )
                     }
                 } else {
@@ -177,9 +249,43 @@ class MapViewModel(
                     it.copy(
                         isLoading = false,
                         errorMessage = "Erreur lors du calcul de l'itinéraire: ${e.message}",
-                        isRecalculation = false  // Réinitialiser en cas d'erreur
+                        isRecalculation = false
                     )
                 }
+            }
+        }
+    }
+
+    // Ajoutez cette méthode helper
+    private fun createRouteSegments(
+        points: List<LatLng>,
+        instructions: List<Instruction>?,
+        destinationLatLng: LatLng
+    ): List<RouteSegment> {
+        val segments = mutableListOf<RouteSegment>()
+
+        instructions?.forEach { instruction ->
+            if (instruction.point_index < points.size) {
+                val point = points[instruction.point_index]
+                segments.add(RouteSegment(point, instruction.text))
+            }
+        }
+
+        segments.add(RouteSegment(destinationLatLng, "Vous êtes arrivé à destination"))
+        return segments
+    }
+
+    // Ajoutez cette méthode pour changer d'itinéraire
+    fun selectRoute(index: Int) {
+        val routes = _uiState.value.availableRoutes
+        if (index in routes.indices) {
+            val selectedRoute = routes[index]
+            _uiState.update {
+                it.copy(
+                    selectedRouteIndex = index,
+                    routePoints = selectedRoute.points,
+                    routeSegments = selectedRoute.segments
+                )
             }
         }
     }
@@ -193,7 +299,8 @@ class MapViewModel(
                 currentDestination = "",
                 isFollowingUser = true,
                 startPoint = null,
-                endPoint = null
+                endPoint = null,
+                availableRoutes = emptyList()
             )
         }
     }

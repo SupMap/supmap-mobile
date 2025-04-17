@@ -126,6 +126,16 @@
                 style="?attr/materialButtonOutlinedStyle" />
         </LinearLayout>
 
+        <!-- Ajoutez juste avant le Button "startNavigationButton" dans routePlannerContainer -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/routeOptionsRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:visibility="gone"
+            android:clipToPadding="false"
+            android:orientation="vertical" />
+
         <!-- Bouton Voir les trajets -->
         <Button
             android:id="@+id/startNavigationButton"

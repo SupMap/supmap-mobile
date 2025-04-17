@@ -18,6 +18,8 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.example.supmap.MainActivity
 import com.example.supmap.R
 import com.example.supmap.ui.auth.getUserInfo
@@ -67,6 +69,8 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var permissionHandler: PermissionHandler
     private lateinit var destinationField: AutoCompleteTextView
     private lateinit var autocompleteManager: PlaceAutocompleteManager
+    private lateinit var routeOptionsRecyclerView: RecyclerView
+    private lateinit var routeOptionsAdapter: RouteOptionsAdapter
     private var selectedDestination = ""
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -153,6 +157,8 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         navigationEtaText = findViewById(R.id.navigationEtaText)
         exitNavigationButton = findViewById(R.id.exitNavigationButton)
         routePlannerContainer = findViewById(R.id.routePlannerContainer)
+        routeOptionsRecyclerView = findViewById(R.id.routeOptionsRecyclerView)
+        routeOptionsRecyclerView.layoutManager = LinearLayoutManager(this)
 
         // Configurer l'état initial
         clearRouteButton.hide()
@@ -217,44 +223,79 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun observeViewModel() {
         lifecycleScope.launch {
             viewModel.uiState.collectLatest { state ->
-                // Gérer les messages d'erreur
-                state.errorMessage?.let {
-                    Toast.makeText(this@MapActivity, it, Toast.LENGTH_SHORT).show()
-                }
-
-                // Mettre à jour l'UI en fonction de l'état
-                updateTravelModeUI(state.travelMode)
-
-                if (state.hasRoute) {
-                    // Passer le flag de recalculation
+                // Gérer l'affichage ou le nettoyage de l'itinéraire
+                if (state.hasRoute && state.routePoints.isNotEmpty()) {
+                    // Dessiner l'itinéraire sélectionné
                     drawRoute(
                         state.routePoints,
                         state.startPoint,
                         state.endPoint,
-                        isRecalculation = state.isRecalculation
+                        state.isRecalculation
                     )
-
-                    // Mettre à jour la visibilité des boutons
-                    startNavigationButton.visibility = View.GONE
                     clearRouteButton.show()
-                    startNavigationModeButton.visibility = View.VISIBLE
-                } else {
-                    // Cacher les boutons de navigation si pas d'itinéraire
-                    clearRouteButton.hide()
-                    startNavigationModeButton.visibility = View.GONE
-                    startNavigationButton.visibility = View.VISIBLE
 
-                    // Effacer la carte si nécessaire
+                    // Si un itinéraire est affiché, rendre le bouton de navigation visible
+                    if (!state.isNavigationMode) {
+                        startNavigationModeButton.visibility = View.VISIBLE
+                    }
+                } else {
+                    // Aucun itinéraire à afficher
                     if (::googleMap.isInitialized) {
                         googleMap.clear()
                     }
+                    clearRouteButton.hide()
+                    startNavigationModeButton.visibility = View.GONE
                 }
 
-                // Gérer le mode navigation
+                // Gestion des messages d'erreur
+                state.errorMessage?.let {
+                    Toast.makeText(this@MapActivity, it, Toast.LENGTH_SHORT).show()
+                }
+
+                // Mise à jour du mode de navigation
                 if (state.isNavigationMode) {
                     setupNavigationMode()
                 } else {
                     setupNormalMode()
+                }
+
+                // AJOUT DE LA LIGNE updateTravelModeUI
+                updateTravelModeUI(state.travelMode)
+
+                // Gestion des itinéraires multiples
+                if (state.availableRoutes.isNotEmpty()) {
+                    // Les itinéraires sont disponibles, configurez l'adaptateur
+                    if (!::routeOptionsAdapter.isInitialized) {
+                        routeOptionsAdapter = RouteOptionsAdapter(
+                            state.availableRoutes,
+                            state.selectedRouteIndex
+                        ) { index ->
+                            viewModel.selectRoute(index)
+                        }
+                        routeOptionsRecyclerView.adapter = routeOptionsAdapter
+                    } else {
+                        routeOptionsAdapter.updateData(
+                            state.availableRoutes,
+                            state.selectedRouteIndex
+                        )
+                    }
+
+                    // Afficher la RecyclerView
+                    routeOptionsRecyclerView.visibility = View.VISIBLE
+
+                    // Cacher le bouton "Voir les trajets" puisque nous les montrons déjà
+                    startNavigationButton.visibility = View.GONE
+                } else {
+                    // Pas d'itinéraires disponibles, masquer la RecyclerView
+                    routeOptionsRecyclerView.visibility = View.GONE
+
+                    // APPROCHE SIMPLIFIÉE: Montrer le bouton par défaut, sauf pendant le chargement
+                    // ou quand on est en mode navigation
+                    if (state.isLoading || state.isNavigationMode || state.hasRoute) {
+                        startNavigationButton.visibility = View.GONE
+                    } else {
+                        startNavigationButton.visibility = View.VISIBLE
+                    }
                 }
             }
         }
@@ -281,52 +322,56 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun updateTravelModeUI(mode: String) {
-        // Réinitialiser tous les boutons
-        drivingModeButton.backgroundTintList =
-            ColorStateList.valueOf(resources.getColor(android.R.color.white, theme))
-        bicyclingModeButton.backgroundTintList =
-            ColorStateList.valueOf(resources.getColor(android.R.color.white, theme))
-        walkingModeButton.backgroundTintList =
-            ColorStateList.valueOf(resources.getColor(android.R.color.white, theme))
+        // Définir la couleur bleu et la couleur blanche
+        val blueColor = ColorStateList.valueOf(resources.getColor(R.color.bleu, theme))
+        val whiteColor = ColorStateList.valueOf(resources.getColor(android.R.color.white, theme))
+
+        // Réinitialiser tous les boutons à blanc
+        drivingModeButton.backgroundTintList = whiteColor
+        bicyclingModeButton.backgroundTintList = whiteColor
+        walkingModeButton.backgroundTintList = whiteColor
 
         // Définir les icônes par défaut
         drivingModeButton.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_car, 0, 0)
         bicyclingModeButton.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_bike, 0, 0)
         walkingModeButton.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_walk, 0, 0)
 
-        // Mettre en évidence le bouton sélectionné
+        // Mise à jour de l'apparence en fonction du mode sélectionné
         when (mode) {
             "driving" -> {
-                drivingModeButton.backgroundTintList =
-                    ColorStateList.valueOf(resources.getColor(R.color.bleu, theme))
+                drivingModeButton.backgroundTintList = blueColor
+                // Utiliser la version blanche de l'icône
                 drivingModeButton.setCompoundDrawablesWithIntrinsicBounds(
                     0,
                     R.drawable.ic_car_white,
                     0,
                     0
                 )
+                drivingModeButton.setTextColor(resources.getColor(android.R.color.white, theme))
             }
 
             "bicycling" -> {
-                bicyclingModeButton.backgroundTintList =
-                    ColorStateList.valueOf(resources.getColor(R.color.bleu, theme))
+                bicyclingModeButton.backgroundTintList = blueColor
+                // Utiliser la version blanche de l'icône
                 bicyclingModeButton.setCompoundDrawablesWithIntrinsicBounds(
                     0,
                     R.drawable.ic_bike_white,
                     0,
                     0
                 )
+                bicyclingModeButton.setTextColor(resources.getColor(android.R.color.white, theme))
             }
 
             "walking" -> {
-                walkingModeButton.backgroundTintList =
-                    ColorStateList.valueOf(resources.getColor(R.color.bleu, theme))
+                walkingModeButton.backgroundTintList = blueColor
+                // Utiliser la version blanche de l'icône
                 walkingModeButton.setCompoundDrawablesWithIntrinsicBounds(
                     0,
                     R.drawable.ic_walk_white,
                     0,
                     0
                 )
+                walkingModeButton.setTextColor(resources.getColor(android.R.color.white, theme))
             }
         }
     }
