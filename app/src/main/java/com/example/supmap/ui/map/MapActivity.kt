@@ -36,7 +36,6 @@ import com.google.android.gms.maps.model.PolylineOptions
 import com.google.android.libraries.places.api.Places
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -304,7 +303,11 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         lifecycleScope.launch {
             viewModel.currentLocation.collectLatest { location ->
                 location?.let {
-                    if (viewModel.uiState.value.isFollowingUser && !viewModel.uiState.value.isNavigationMode) {
+                    // ajoute la vérification sur hasRoute :
+                    if (viewModel.uiState.value.isFollowingUser
+                        && !viewModel.uiState.value.isNavigationMode
+                        && !viewModel.uiState.value.hasRoute
+                    ) {
                         centerMapOnLocation(it.latitude, it.longitude)
                     }
                 }
@@ -492,46 +495,31 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
             // Ajuster la caméra seulement si ce n'est PAS un recalcul
             if (!isRecalculation) {
                 Log.d("MapActivity", "NEW ROUTE - Will adjust camera to show full route")
-
-                // ESSAI DIRECT: Utiliser une approche plus directe
-                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(startPoint, 12f))
-
-                // Puis après un court délai, faire le dézoom complet
                 lifecycleScope.launch {
-                    delay(300)
-
+                    // Construction du bounds comme déjà en place
                     val builder = LatLngBounds.Builder()
-
-                    // Ajouter explicitement les points de départ et d'arrivée
                     builder.include(startPoint)
                     builder.include(endPoint)
 
-                    // Ajouter tous les points de l'itinéraire (ou juste quelques points clés)
-                    val step = kotlin.math.max(1, points.size / 20)  // Prendre ~20 points max
+                    val step = kotlin.math.max(1, points.size / 20)
                     for (i in points.indices step step) {
                         builder.include(points[i])
                     }
-
                     val bounds = builder.build()
-                    Log.d("MapActivity", "Bounds: ${bounds.northeast} to ${bounds.southwest}")
-
                     val padding = 200
 
                     try {
-                        Log.d("MapActivity", "Attempting camera adjustment...")
-                        // Essayer d'abord moveCamera (plus fiable)
-                        googleMap.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding))
+                        googleMap.animateCamera(
+                            CameraUpdateFactory.newLatLngBounds(
+                                bounds,
+                                padding
+                            )
+                        )
                         Log.d("MapActivity", "Camera adjustment successful!")
                     } catch (e: Exception) {
                         Log.e("MapActivity", "Error adjusting camera: ${e.message}", e)
-                        try {
-                            // Essayer avec moins de padding
-                            googleMap.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 50))
-                        } catch (e2: Exception) {
-                            Log.e("MapActivity", "Second error: ${e2.message}", e2)
-                            // Solution de secours
-                            googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(startPoint, 12f))
-                        }
+                        // Solution de secours (si bounds fail)
+                        googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(startPoint, 12f))
                     }
                 }
             } else {

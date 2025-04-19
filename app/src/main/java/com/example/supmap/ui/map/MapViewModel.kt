@@ -284,7 +284,8 @@ class MapViewModel(
                 it.copy(
                     selectedRouteIndex = index,
                     routePoints = selectedRoute.points,
-                    routeSegments = selectedRoute.segments
+                    routeSegments = selectedRoute.segments,
+                    isFollowingUser = false      // AJOUTER CETTE LIGNE !
                 )
             }
         }
