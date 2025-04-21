@@ -17,11 +17,13 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.supmap.MainActivity
 import com.example.supmap.R
+import com.example.supmap.data.api.IncidentTypeProvider
 import com.example.supmap.ui.auth.getUserInfo
 import com.example.supmap.utils.PermissionHandler
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -34,9 +36,11 @@ import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.maps.model.PolylineOptions
 import com.google.android.libraries.places.api.Places
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -70,6 +74,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var autocompleteManager: PlaceAutocompleteManager
     private lateinit var routeOptionsRecyclerView: RecyclerView
     private lateinit var routeOptionsAdapter: RouteOptionsAdapter
+    private lateinit var reportIncidentFab: FloatingActionButton
     private var selectedDestination = ""
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -98,7 +103,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         // Vérifier si l'utilisateur est connecté
         val sharedPreferences = getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
         val token = sharedPreferences.getString("auth_token", "")
-        Log.d("MapActivity", "Token stocké: '${token}'")
         permissionHandler = PermissionHandler(this, requestPermissionLauncher)
         checkAndRequestLocationPermission()
         if (token.isNullOrEmpty()) {
@@ -113,12 +117,48 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         }
 
         setContentView(R.layout.activity_map)
+        reportIncidentFab = findViewById(R.id.reportIncidentFab)
+        reportIncidentFab.setOnClickListener {
+            showIncidentTypeSheet()
+        }
         permissionHandler = PermissionHandler(this, requestPermissionLauncher)
         checkAndRequestLocationPermission()
         setupViews()
         setupGoogleMap()
         observeViewModel()
+        observeIncidentStatus()
+        // dans onCreate(), en plus de l'observateur du bearing
+        lifecycleScope.launchWhenStarted {
+            viewModel.currentLocation
+                .filterNotNull()
+                .collect { loc ->
+                    if (::googleMap.isInitialized && viewModel.uiState.value.isNavigationMode) {
+                        val bearing = viewModel.currentBearing.value
+                        val cam = CameraPosition.Builder()
+                            .target(LatLng(loc.latitude, loc.longitude))
+                            .zoom(20f)
+                            .tilt(65f)
+                            .bearing(bearing)
+                            .build()
+                        googleMap.moveCamera(CameraUpdateFactory.newCameraPosition(cam))
+                    }
+                }
+        }
     }
+
+    private fun showIncidentTypeSheet() {
+        val sheet = BottomSheetDialog(this)
+        val view = layoutInflater.inflate(R.layout.incident_type_bottom_sheet, null)
+        val rv = view.findViewById<RecyclerView>(R.id.incidentTypesRecyclerView)
+        rv.layoutManager = LinearLayoutManager(this)
+        rv.adapter = IncidentTypeAdapter(IncidentTypeProvider.allTypes) { type ->
+            sheet.dismiss()
+            viewModel.reportIncident(type.id, type.name)
+        }
+        sheet.setContentView(view)
+        sheet.show()
+    }
+
 
     private fun checkAndRequestLocationPermission() {
         if (!permissionHandler.checkLocationPermission()) {
@@ -258,6 +298,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                     setupNormalMode()
                 }
 
+                updateFabVisibility(state.isNavigationMode)
                 // AJOUT DE LA LIGNE updateTravelModeUI
                 updateTravelModeUI(state.travelMode)
 
@@ -397,13 +438,23 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // Configurer la carte pour le mode navigation
         if (::googleMap.isInitialized) {
-            // Désactiver les gestes utilisateur
             googleMap.uiSettings.apply {
                 isScrollGesturesEnabled = false
                 isZoomGesturesEnabled = false
                 isRotateGesturesEnabled = false
                 isTiltGesturesEnabled = false
                 isMyLocationButtonEnabled = false
+            }
+            // Essayer de récupérer tout de suite la dernière position connue
+            viewModel.currentLocation.value?.let { loc ->
+                val bearing = viewModel.currentBearing.value
+                val cam = CameraPosition.Builder()
+                    .target(LatLng(loc.latitude, loc.longitude))
+                    .zoom(20f)
+                    .tilt(65f)
+                    .bearing(bearing)
+                    .build()
+                googleMap.moveCamera(CameraUpdateFactory.newCameraPosition(cam))
             }
         }
     }
@@ -633,5 +684,19 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         if (state.isNavigationMode) {
             setupNavigationMode()
         }
+    }
+
+    private fun observeIncidentStatus() {
+        lifecycleScope.launchWhenStarted {
+            viewModel.incidentStatus.collect { success ->
+                val msg = if (success) "Incident envoyé 👍" else "Échec de l’envoi 🚨"
+                Toast.makeText(this@MapActivity, msg, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    // Dans ton flow d’état, active ou désactive la visibilité du FAB
+    private fun updateFabVisibility(isNavMode: Boolean) {
+        reportIncidentFab.isVisible = isNavMode
     }
 }

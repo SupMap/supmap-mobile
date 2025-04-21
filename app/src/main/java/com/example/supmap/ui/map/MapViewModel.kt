@@ -7,9 +7,11 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.supmap.data.api.IncidentRequest
 import com.example.supmap.data.api.Instruction
 import com.example.supmap.data.api.Path
 import com.example.supmap.data.repository.DirectionsRepository
+import com.example.supmap.data.repository.IncidentRepository
 import com.example.supmap.util.LocationService
 import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.flow.*
@@ -27,21 +29,18 @@ data class RouteOption(
 class MapViewModel(
     private val context: Context,
     private val directionsRepository: DirectionsRepository,
-    private val locationService: LocationService
+    private val locationService: LocationService,
+    private val incidentRepository: IncidentRepository
 
 ) : ViewModel() {
     // Dans la classe MapViewModel
     private val _isChangingTravelMode = MutableStateFlow(false)
     val isChangingTravelMode: StateFlow<Boolean> = _isChangingTravelMode
-
-    // État de l'interface utilisateur
+    private val _incidentStatus = MutableSharedFlow<Boolean>()
+    val incidentStatus: SharedFlow<Boolean> = _incidentStatus
     private val _uiState = MutableStateFlow(MapUiState())
     val uiState: StateFlow<MapUiState> = _uiState
-
-    // Expose la localisation actuelle
     val currentLocation: StateFlow<Location?> = locationService.locationFlow
-
-    // Expose le bearing (orientation)
     val currentBearing: StateFlow<Float> = locationService.bearingFlow
 
     init {
@@ -58,6 +57,25 @@ class MapViewModel(
             }
         }
     }
+
+    fun reportIncident(typeId: Long, typeName: String) {
+        viewModelScope.launch {
+            val loc = locationService.getCurrentLocation()
+            if (loc == null) {
+                _incidentStatus.emit(false)
+                return@launch
+            }
+            val req = IncidentRequest(
+                typeId = typeId,
+                typeName = typeName,
+                latitude = loc.latitude,
+                longitude = loc.longitude
+            )
+            val resp = incidentRepository.createIncident(req)
+            _incidentStatus.emit(resp != null)
+        }
+    }
+
 
     fun getCurrentLocation(): Location? {
         return locationService.getCurrentLocation()
@@ -329,7 +347,8 @@ class MapViewModel(
                 return MapViewModel(
                     context,
                     DirectionsRepository(context),
-                    LocationService(context)
+                    LocationService(context),
+                    IncidentRepository(context)    // <--- ajouté
                 ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
