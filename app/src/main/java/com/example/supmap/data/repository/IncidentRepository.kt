@@ -15,15 +15,19 @@ class IncidentRepository(private val context: Context) {
     private val service = IncidentApiClient.service
 
     /** Crée un incident, ou renvoie null en cas d’erreur */
-    suspend fun createIncident(request: IncidentRequest): IncidentResponse? =
+    suspend fun createIncident(request: IncidentRequest): Boolean =
         withContext(Dispatchers.IO) {
             val resp = service.createIncident(request)
-            if (resp.isSuccessful) {
-                resp.body()
-            } else {
+            if (!resp.isSuccessful) {
                 Log.e("IncidentRepo", "Erreur HTTP ${resp.code()} : ${resp.errorBody()?.string()}")
-                null
             }
+            resp.isSuccessful
+        }
+
+    /** Dans ta classe IncidentRepository */
+    suspend fun fetchAllIncidents(): List<IncidentDto> =
+        withContext(Dispatchers.IO) {
+            IncidentApiClient.service.getAllIncidents()
         }
 
 

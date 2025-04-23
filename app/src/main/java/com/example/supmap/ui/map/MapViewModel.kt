@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.supmap.data.api.IncidentDto
 import com.example.supmap.data.api.IncidentRequest
 import com.example.supmap.data.api.Instruction
 import com.example.supmap.data.api.Path
@@ -14,7 +15,9 @@ import com.example.supmap.data.repository.DirectionsRepository
 import com.example.supmap.data.repository.IncidentRepository
 import com.example.supmap.util.LocationService
 import com.google.android.gms.maps.model.LatLng
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.*
 
@@ -42,21 +45,31 @@ class MapViewModel(
     val uiState: StateFlow<MapUiState> = _uiState
     val currentLocation: StateFlow<Location?> = locationService.locationFlow
     val currentBearing: StateFlow<Float> = locationService.bearingFlow
+    private val _incidents = MutableStateFlow<List<IncidentDto>>(emptyList())
+    val incidents: StateFlow<List<IncidentDto>> = _incidents
 
     init {
         // Démarrer les mises à jour de localisation
         locationService.startLocationUpdates()
 
-        // Surveiller les changements de localisation
+        // Surveiller les changements de localisation pour le suivi utilisateur
         viewModelScope.launch {
             locationService.locationFlow.collect { location ->
                 if (location != null && _uiState.value.isFollowingUser) {
-                    // Mettre à jour la position sans changer les autres états
                     _uiState.update { it.copy(currentLocation = location) }
                 }
             }
         }
+
+        // Rafraîchir la liste des incidents toutes les 10s
+        viewModelScope.launch {
+            while (isActive) {
+                loadIncidents()
+                delay(10000)
+            }
+        }
     }
+
 
     fun reportIncident(typeId: Long, typeName: String) {
         viewModelScope.launch {
@@ -65,17 +78,23 @@ class MapViewModel(
                 _incidentStatus.emit(false)
                 return@launch
             }
-            val req = IncidentRequest(
-                typeId = typeId,
-                typeName = typeName,
-                latitude = loc.latitude,
-                longitude = loc.longitude
-            )
-            val resp = incidentRepository.createIncident(req)
-            _incidentStatus.emit(resp != null)
+            val req = IncidentRequest(typeId, typeName, loc.latitude, loc.longitude)
+            // now createIncident returns Boolean
+            val success = incidentRepository.createIncident(req)
+            _incidentStatus.emit(success)
         }
     }
 
+    fun loadIncidents() {
+        viewModelScope.launch {
+            try {
+                val list = incidentRepository.fetchAllIncidents()
+                _incidents.value = list
+            } catch (e: Exception) {
+                Log.e("MapVM", "Erreur fetch incidents", e)
+            }
+        }
+    }
 
     fun getCurrentLocation(): Location? {
         return locationService.getCurrentLocation()

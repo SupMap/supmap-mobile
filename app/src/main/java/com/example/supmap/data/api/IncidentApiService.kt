@@ -53,11 +53,15 @@ data class ConfirmedByUser(
  */
 interface IncidentApiService {
     @POST("incidents")
-    suspend fun createIncident(@Body request: IncidentRequest): Response<IncidentResponse>
+    suspend fun createIncident(@Body request: IncidentRequest): Response<String>
+
+    @GET("incidents")
+    suspend fun getAllIncidents(): List<IncidentDto>
 
     @GET("user/incidents")
     suspend fun getUserIncidents(): List<IncidentDto>
 }
+
 
 object IncidentApiClient {
     val service: IncidentApiService = NetworkModule.createService()

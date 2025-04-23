@@ -45,6 +45,12 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import androidx.annotation.DrawableRes
+import androidx.core.content.ContextCompat
+import com.google.android.gms.maps.model.BitmapDescriptor
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 
 
 class MapActivity : AppCompatActivity(), OnMapReadyCallback {
@@ -145,6 +151,19 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
         }
     }
+
+    private fun getBitmapDescriptorFromVector(@DrawableRes id: Int): BitmapDescriptor {
+        val vector =
+            ContextCompat.getDrawable(this, id) ?: return BitmapDescriptorFactory.defaultMarker()
+        val w = vector.intrinsicWidth
+        val h = vector.intrinsicHeight
+        vector.setBounds(0, 0, w, h)
+        val bm = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bm)
+        vector.draw(canvas)
+        return BitmapDescriptorFactory.fromBitmap(bm)
+    }
+
 
     private fun showIncidentTypeSheet() {
         val sheet = BottomSheetDialog(this)
@@ -281,6 +300,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                     // Aucun itinéraire à afficher
                     if (::googleMap.isInitialized) {
                         googleMap.clear()
+                        displayIncidentsOnMap()
                     }
                     clearRouteButton.hide()
                     startNavigationModeButton.visibility = View.GONE
@@ -510,6 +530,25 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    private fun displayIncidentsOnMap() {
+        val incidents = viewModel.incidents.value
+        incidents.forEach { dto ->
+            val pos = LatLng(dto.latitude, dto.longitude)
+            val iconRes = IncidentTypeProvider.allTypes
+                .find { it.id == dto.typeId }
+                ?.iconRes
+                ?: R.drawable.ic_incident_report
+
+            googleMap.addMarker(
+                MarkerOptions()
+                    .position(pos)
+                    .icon(getBitmapDescriptorFromVector(iconRes))
+                    .title(dto.typeName)
+            )
+        }
+    }
+
+
     private fun drawRoute(
         points: List<LatLng>,
         startPoint: LatLng?,
@@ -529,6 +568,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         try {
             // Effacer la carte actuelle
             googleMap.clear()
+            displayIncidentsOnMap()
 
             // Ajouter les marqueurs
             googleMap.addMarker(MarkerOptions().position(startPoint).title("Départ"))
@@ -659,6 +699,29 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // Initialiser l'état de l'UI selon le ViewModel
         updateUIFromViewModel()
+        viewModel.loadIncidents()
+
+        // 2) observe le flux d’incidents
+        lifecycleScope.launchWhenStarted {
+            viewModel.incidents.collect { list ->
+                displayIncidentsOnMap()
+                list.forEach { dto ->
+                    val pos = LatLng(dto.latitude, dto.longitude)
+                    // trouve l’icône correspondante
+                    val iconRes = IncidentTypeProvider.allTypes
+                        .find { it.id == dto.typeId }
+                        ?.iconRes
+                        ?: R.drawable.ic_incident_report // fallback
+
+                    googleMap.addMarker(
+                        MarkerOptions()
+                            .position(pos)
+                            .icon(getBitmapDescriptorFromVector(iconRes))
+                            .title(dto.typeName)
+                    )
+                }
+            }
+        }
     }
 
     private fun updateUIFromViewModel() {
@@ -689,11 +752,18 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun observeIncidentStatus() {
         lifecycleScope.launchWhenStarted {
             viewModel.incidentStatus.collect { success ->
-                val msg = if (success) "Incident envoyé 👍" else "Échec de l’envoi 🚨"
+                val msg = if (success) {
+                    // 1) On recharge les incidents existants
+                    viewModel.loadIncidents()
+                    "Incident envoyé 👍"
+                } else {
+                    "Échec de l’envoi 🚨"
+                }
                 Toast.makeText(this@MapActivity, msg, Toast.LENGTH_SHORT).show()
             }
         }
     }
+
 
     // Dans ton flow d’état, active ou désactive la visibilité du FAB
     private fun updateFabVisibility(isNavMode: Boolean) {
