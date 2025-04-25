@@ -81,6 +81,8 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var routeOptionsRecyclerView: RecyclerView
     private lateinit var routeOptionsAdapter: RouteOptionsAdapter
     private lateinit var reportIncidentFab: FloatingActionButton
+    private lateinit var nextInstructionContainer: LinearLayout
+    private lateinit var nextInstructionText: TextView
     private var selectedDestination = ""
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -127,13 +129,10 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         reportIncidentFab.setOnClickListener {
             showIncidentTypeSheet()
         }
-        permissionHandler = PermissionHandler(this, requestPermissionLauncher)
-        checkAndRequestLocationPermission()
         setupViews()
         setupGoogleMap()
         observeViewModel()
         observeIncidentStatus()
-        findViewById<LinearLayout>(R.id.nextInstructionContainer).visibility = View.GONE
         // dans onCreate(), en plus de l'observateur du bearing
         lifecycleScope.launchWhenStarted {
             viewModel.currentLocation
@@ -150,39 +149,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                         googleMap.moveCamera(CameraUpdateFactory.newCameraPosition(cam))
                     }
                 }
-        }
-        lifecycleScope.launch {
-            viewModel.currentNavigation.collectLatest { navState ->
-                if (navState != null) {
-                    // Mise à jour de l'instruction principale et de la distance
-                    navigationInstructionText.text = navState.currentInstruction
-
-                    val formattedDistance = if (navState.distanceToNext >= 1000) {
-                        String.format("%.1f km", navState.distanceToNext / 1000)
-                    } else {
-                        String.format("%d m", navState.distanceToNext.toInt())
-                    }
-                    navigationDistanceText.text = formattedDistance
-
-                    // Gestion de la prochaine instruction
-                    val nextInstructionContainer =
-                        findViewById<LinearLayout>(R.id.nextInstructionContainer)
-                    val nextInstructionText = findViewById<TextView>(R.id.nextInstructionText)
-
-                    if (navState.nextInstruction != null) {
-                        nextInstructionContainer.visibility = View.VISIBLE
-                        nextInstructionText.text = "Ensuite : ${navState.nextInstruction}"
-                    } else {
-                        nextInstructionContainer.visibility = View.GONE
-                    }
-
-                    // Si destination atteinte
-                    if (navState.isDestinationReached) {
-                        Toast.makeText(this@MapActivity, "Destination atteinte!", Toast.LENGTH_LONG)
-                            .show()
-                    }
-                }
-            }
         }
     }
 
@@ -234,7 +200,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
     // Fonction setupViews() optimisée
     private fun setupViews() {
-        // Initialiser les références UI
+        // Initialiser les références UI générales
         accountButton = findViewById(R.id.accountButton)
         clearRouteButton = findViewById(R.id.clearRouteButton)
         startNavigationButton = findViewById(R.id.startNavigationButton)
@@ -243,19 +209,25 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         bicyclingModeButton = findViewById(R.id.bicyclingModeButton)
         walkingModeButton = findViewById(R.id.walkingModeButton)
         startNavigationModeButton = findViewById(R.id.startNavigationModeButton)
-        navigationModeContainer = findViewById(R.id.navigationModeContainer)
-        navigationInstructionText = findViewById(R.id.navigationInstructionText)
-        navigationDistanceText = findViewById(R.id.navigationDistanceText)
-        navigationEtaText = findViewById(R.id.navigationEtaText)
         exitNavigationButton = findViewById(R.id.exitNavigationButton)
         routePlannerContainer = findViewById(R.id.routePlannerContainer)
         routeOptionsRecyclerView = findViewById(R.id.routeOptionsRecyclerView)
 
-        routeOptionsRecyclerView.layoutManager = LinearLayoutManager(this)
+        // Initialiser les vues du mode navigation
+        navigationModeContainer = findViewById(R.id.navigationModeContainer)
+        navigationInstructionText = findViewById(R.id.navigationInstructionText)
+        navigationDistanceText = findViewById(R.id.navigationDistanceText)
+        navigationEtaText = findViewById(R.id.navigationEtaText)
+        nextInstructionContainer = findViewById(R.id.nextInstructionContainer)
+        nextInstructionText = findViewById(R.id.nextInstructionText)
 
-        // Configurer l'état initial
+        // Configuration initiale des vues
+        nextInstructionContainer.visibility = View.GONE
         clearRouteButton.hide()
         startNavigationModeButton.visibility = View.GONE
+
+        // Configurer le RecyclerView
+        routeOptionsRecyclerView.layoutManager = LinearLayoutManager(this)
 
         // Initialiser le PlacesClient
         val placesClient = Places.createClient(this)
@@ -415,6 +387,35 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
             viewModel.currentBearing.collectLatest { bearing ->
                 if (viewModel.uiState.value.isNavigationMode) {
                     updateNavigationCamera(bearing)
+                }
+            }
+        }
+        lifecycleScope.launch {
+            viewModel.currentNavigation.collectLatest { navState ->
+                if (navState != null) {
+                    // Mise à jour de l'instruction principale et de la distance
+                    navigationInstructionText.text = navState.currentInstruction
+
+                    val formattedDistance = if (navState.distanceToNext >= 1000) {
+                        String.format("%.1f km", navState.distanceToNext / 1000)
+                    } else {
+                        String.format("%d m", navState.distanceToNext.toInt())
+                    }
+                    navigationDistanceText.text = formattedDistance
+
+                    // Gestion de la prochaine instruction
+                    if (navState.nextInstruction != null) {
+                        nextInstructionContainer.visibility = View.VISIBLE
+                        nextInstructionText.text = "Ensuite : ${navState.nextInstruction}"
+                    } else {
+                        nextInstructionContainer.visibility = View.GONE
+                    }
+
+                    // Si destination atteinte
+                    if (navState.isDestinationReached) {
+                        Toast.makeText(this@MapActivity, "Destination atteinte!", Toast.LENGTH_LONG)
+                            .show()
+                    }
                 }
             }
         }
