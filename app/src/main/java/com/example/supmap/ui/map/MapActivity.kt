@@ -150,6 +150,28 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                     }
                 }
         }
+        lifecycleScope.launch {
+            viewModel.currentNavigation.collectLatest { navState ->
+                if (navState != null) {
+                    // Afficher l'instruction
+                    navigationInstructionText.text = navState.currentInstruction
+
+                    // Formater la distance
+                    val formattedDistance = if (navState.distanceToNext >= 1000) {
+                        String.format("%.1f km", navState.distanceToNext / 1000)
+                    } else {
+                        String.format("%d m", navState.distanceToNext.toInt())
+                    }
+                    navigationDistanceText.text = formattedDistance
+
+                    // Si destination atteinte
+                    if (navState.isDestinationReached) {
+                        Toast.makeText(this@MapActivity, "Destination atteinte!", Toast.LENGTH_LONG)
+                            .show()
+                    }
+                }
+            }
+        }
     }
 
     private fun getBitmapDescriptorFromVector(@DrawableRes id: Int): BitmapDescriptor {
@@ -216,6 +238,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         exitNavigationButton = findViewById(R.id.exitNavigationButton)
         routePlannerContainer = findViewById(R.id.routePlannerContainer)
         routeOptionsRecyclerView = findViewById(R.id.routeOptionsRecyclerView)
+
         routeOptionsRecyclerView.layoutManager = LinearLayoutManager(this)
 
         // Configurer l'état initial

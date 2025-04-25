@@ -4,6 +4,7 @@ import android.content.Context
 import android.location.Geocoder
 import android.location.Location
 import android.util.Log
+import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -19,6 +20,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.osmdroid.events.MapEvent
 import java.util.*
 
 data class RouteOption(
@@ -47,6 +49,12 @@ class MapViewModel(
     val currentBearing: StateFlow<Float> = locationService.bearingFlow
     private val _incidents = MutableStateFlow<List<IncidentDto>>(emptyList())
     val incidents: StateFlow<List<IncidentDto>> = _incidents
+    private val mapHandler = MapHandler()
+
+    // MutableStateFlow pour les instructions de navigation
+    private val _currentNavigation = MutableStateFlow<NavigationState?>(null)
+    val currentNavigation: StateFlow<NavigationState?> = _currentNavigation
+
 
     init {
         // Démarrer les mises à jour de localisation
@@ -70,6 +78,13 @@ class MapViewModel(
         }
     }
 
+    // Classe pour représenter l'état de la navigation
+    data class NavigationState(
+        val currentInstruction: String,
+        val distanceToNext: Double,
+        val nextInstruction: String?,
+        val isDestinationReached: Boolean = false
+    )
 
     fun reportIncident(typeId: Long, typeName: String) {
         viewModelScope.launch {
@@ -344,11 +359,49 @@ class MapViewModel(
     }
 
     fun enterNavigationMode() {
+        val selectedRoute =
+            _uiState.value.availableRoutes.getOrNull(_uiState.value.selectedRouteIndex)
+        if (selectedRoute != null) {
+            // Initialiser avec le Path complet
+            mapHandler.initialize(
+                selectedRoute.path,
+                object : MapHandler.NavigationListener {
+                    override fun onInstructionChanged(
+                        instruction: Instruction,
+                        distanceToNext: Double,
+                        nextInstruction: Instruction?
+                    ) {
+                        _currentNavigation.value = NavigationState(
+                            currentInstruction = instruction.text,
+                            distanceToNext = distanceToNext,
+                            nextInstruction = nextInstruction?.text
+                        )
+                    }
+
+                    override fun onDestinationReached() {
+                        _currentNavigation.value = _currentNavigation.value?.copy(
+                            isDestinationReached = true
+                        )
+                    }
+                }
+            )
+        }
+
         _uiState.update { it.copy(isNavigationMode = true) }
         locationService.startNavigationLocationUpdates()
+
+        viewModelScope.launch {
+            locationService.locationFlow.collect { location ->
+                location?.let {
+                    mapHandler.updateLocation(it)
+                }
+            }
+        }
     }
 
     fun exitNavigationMode() {
+        mapHandler.reset()
+        _currentNavigation.value = null
         _uiState.update { it.copy(isNavigationMode = false) }
         locationService.stopNavigationLocationUpdates()
     }

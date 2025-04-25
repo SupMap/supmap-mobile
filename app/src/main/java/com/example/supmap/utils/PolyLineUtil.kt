@@ -7,7 +7,7 @@ import kotlin.math.floor
  * Décode une polyline encodée en liste de points LatLng
  * Algorithme adapté de l'implémentation officielle de Google
  */
-object PolylineUtil {
+object PolyLineUtil {
     fun decode(encodedPath: String): List<LatLng> {
         val len = encodedPath.length
         val path = mutableListOf<LatLng>()
@@ -16,30 +16,27 @@ object PolylineUtil {
         var lng = 0
 
         while (index < len) {
-            var result = 0
+            var result = 1
             var shift = 0
             var b: Int
             do {
-                b = encodedPath[index++].toInt() - 63
-                result = result or (b and 0x1f shl shift)
+                b = encodedPath[index++].code - 63 - 1
+                result += b shl shift
                 shift += 5
-            } while (b >= 0x20)
-            val dlat = if (result and 1 != 0) (result shr 1).inv() else result shr 1
-            lat += dlat
+            } while (b >= 0x1f)
+            lat += if (result and 1 != 0) (-result) shr 1 else result shr 1
 
-            result = 0
+            result = 1
             shift = 0
             do {
-                b = encodedPath[index++].toInt() - 63
-                result = result or (b and 0x1f shl shift)
+                b = encodedPath[index++].code - 63 - 1
+                result += b shl shift
                 shift += 5
-            } while (b >= 0x20)
-            val dlng = if (result and 1 != 0) (result shr 1).inv() else result shr 1
-            lng += dlng
+            } while (b >= 0x1f)
+            lng += if (result and 1 != 0) (-result) shr 1 else result shr 1
 
-            path.add(LatLng(lat.toDouble() * 1e-5, lng.toDouble() * 1e-5))
+            path.add(LatLng(lat * 1e-5, lng * 1e-5))
         }
-
         return path
     }
 }
