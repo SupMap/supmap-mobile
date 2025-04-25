@@ -192,54 +192,128 @@
         android:elevation="10dp">
 
         <!-- Bandeau d'instructions en haut -->
-        <LinearLayout
+        <!-- Bandeau d'instructions en haut style Waze -->
+        <androidx.cardview.widget.CardView
             android:id="@+id/navigationInstructionsPanel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:background="@color/bleu"
-            android:padding="16dp"
-            android:elevation="8dp">
+            android:layout_margin="8dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="8dp">
 
-            <!-- Instruction principale -->
-            <TextView
-                android:id="@+id/navigationInstructionText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Suivez l'itinéraire"
-                android:textColor="@android:color/white"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:gravity="center_vertical"
-                android:drawableStart="@drawable/ic_straight"
-                android:drawableLeft="@drawable/ic_straight"
-                android:drawablePadding="16dp" />
-
-            <!-- Distance et temps -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="8dp">
+                android:orientation="vertical">
 
-                <TextView
-                    android:id="@+id/navigationDistanceText"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="0,5 km"
-                    android:textColor="@android:color/white"
-                    android:textSize="14sp" />
+                <!-- Barre supérieure avec ETA -->
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="36dp"
+                    android:background="@color/orange"
+                    android:paddingHorizontal="16dp">
 
-                <TextView
-                    android:id="@+id/navigationEtaText"
-                    android:layout_width="wrap_content"
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentStart="true"
+                        android:layout_centerVertical="true"
+                        android:text="Arrivée prévue"
+                        android:textColor="@android:color/white"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/navigationEtaText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:text="15:30"
+                        android:textColor="@android:color/white"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+                </RelativeLayout>
+
+                <!-- Contenu principal de l'instruction -->
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Arrivée : 15:30"
-                    android:textColor="@android:color/white"
-                    android:textSize="14sp" />
+                    android:background="@color/bleu"
+                    android:padding="16dp"
+                    android:orientation="horizontal">
+
+                    <!-- Icône de direction -->
+                    <ImageView
+                        android:id="@+id/directionIconView"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:src="@drawable/ic_straight"
+                        android:contentDescription="Direction"
+                        android:layout_gravity="center_vertical"
+                        app:tint="@android:color/white" />
+
+                    <!-- Instruction et distance -->
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="16dp"
+                        android:orientation="vertical"
+                        android:layout_gravity="center_vertical">
+
+                        <TextView
+                            android:id="@+id/navigationInstructionText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Suivez l'itinéraire"
+                            android:textColor="@android:color/white"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/navigationDistanceText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="0,5 km"
+                            android:paddingHorizontal="10dp"
+                            android:paddingVertical="4dp"
+                            android:textColor="@color/bleu"
+                            android:background="@drawable/rounded_distance_badge"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Aperçu de la prochaine instruction (optionnel) -->
+                <LinearLayout
+                    android:id="@+id/nextInstructionContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="#444444"
+                    android:gravity="center_vertical"
+                    android:padding="8dp">
+
+                    <ImageView
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:layout_marginStart="8dp"
+                        android:src="@drawable/ic_straight"
+                        app:tint="@android:color/white"
+                        android:contentDescription="Prochaine direction" />
+
+                    <TextView
+                        android:id="@+id/nextInstructionText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:text="Ensuite : Tournez à droite"
+                        android:textColor="@android:color/white"
+                        android:textSize="12sp" />
+                </LinearLayout>
             </LinearLayout>
-        </LinearLayout>
+        </androidx.cardview.widget.CardView>
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/reportIncidentFab"

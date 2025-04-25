@@ -133,6 +133,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         setupGoogleMap()
         observeViewModel()
         observeIncidentStatus()
+        findViewById<LinearLayout>(R.id.nextInstructionContainer).visibility = View.GONE
         // dans onCreate(), en plus de l'observateur du bearing
         lifecycleScope.launchWhenStarted {
             viewModel.currentLocation
@@ -153,16 +154,27 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         lifecycleScope.launch {
             viewModel.currentNavigation.collectLatest { navState ->
                 if (navState != null) {
-                    // Afficher l'instruction
+                    // Mise à jour de l'instruction principale et de la distance
                     navigationInstructionText.text = navState.currentInstruction
 
-                    // Formater la distance
                     val formattedDistance = if (navState.distanceToNext >= 1000) {
                         String.format("%.1f km", navState.distanceToNext / 1000)
                     } else {
                         String.format("%d m", navState.distanceToNext.toInt())
                     }
                     navigationDistanceText.text = formattedDistance
+
+                    // Gestion de la prochaine instruction
+                    val nextInstructionContainer =
+                        findViewById<LinearLayout>(R.id.nextInstructionContainer)
+                    val nextInstructionText = findViewById<TextView>(R.id.nextInstructionText)
+
+                    if (navState.nextInstruction != null) {
+                        nextInstructionContainer.visibility = View.VISIBLE
+                        nextInstructionText.text = "Ensuite : ${navState.nextInstruction}"
+                    } else {
+                        nextInstructionContainer.visibility = View.GONE
+                    }
 
                     // Si destination atteinte
                     if (navState.isDestinationReached) {
