@@ -144,6 +144,22 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         setupGoogleMap()
         observeViewModel()
         observeIncidentStatus()
+        lifecycleScope.launchWhenStarted {
+            viewModel.currentLocation
+                .filterNotNull()
+                .collect { loc ->
+                    if (::googleMap.isInitialized && viewModel.uiState.value.isNavigationMode) {
+                        val bearing = viewModel.currentBearing.value
+                        val cam = CameraPosition.Builder()
+                            .target(LatLng(loc.latitude, loc.longitude))
+                            .zoom(18.2f)
+                            .tilt(60f)
+                            .bearing(bearing)
+                            .build()
+                        googleMap.moveCamera(CameraUpdateFactory.newCameraPosition(cam))
+                    }
+                }
+        }
     }
 
     private fun getBitmapDescriptorFromVector(@DrawableRes id: Int): BitmapDescriptor {
