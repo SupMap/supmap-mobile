@@ -486,11 +486,24 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         // Afficher les éléments du mode navigation
         navigationModeContainer.visibility = View.VISIBLE
 
-        // Simuler un ETA initial
-        val calendar = Calendar.getInstance()
-        calendar.add(Calendar.MINUTE, 15) // Ajouter 15 minutes
-        val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-        navigationEtaText.text = "Arrivée : ${timeFormat.format(calendar.time)}"
+        // Récupérer le temps de parcours de l'itinéraire sélectionné
+        val selectedRouteIndex = viewModel.uiState.value.selectedRouteIndex
+        val selectedRoute = viewModel.uiState.value.availableRoutes.getOrNull(selectedRouteIndex)
+
+        if (selectedRoute != null) {
+            // Convertir le temps (en millisecondes) en minutes et secondes
+            val etaMillis = selectedRoute.path.time
+            val calendar = Calendar.getInstance()
+            calendar.add(Calendar.MILLISECOND, etaMillis.toInt())
+            val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+            navigationEtaText.text = "Arrivée : ${timeFormat.format(calendar.time)}"
+        } else {
+            // Fallback au cas où l'itinéraire ne serait pas disponible
+            val calendar = Calendar.getInstance()
+            calendar.add(Calendar.MINUTE, 15)
+            val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+            navigationEtaText.text = "Arrivée : ${timeFormat.format(calendar.time)}"
+        }
 
         // Configurer la carte pour le mode navigation
         if (::googleMap.isInitialized) {
