@@ -411,6 +411,15 @@ class MapViewModel(
         locationService.stopLocationUpdates()
     }
 
+    // Ajoutez ces méthodes pour accéder aux données de navigation
+    fun getDistanceTraveled(): Double {
+        return mapHandler.getDistanceTraveled()
+    }
+
+    fun getRemainingDistance(): Double {
+        return mapHandler.getRemainingDistance()
+    }
+
     // Factory pour créer le ViewModel avec dépendances
     class Factory(private val context: Context) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")

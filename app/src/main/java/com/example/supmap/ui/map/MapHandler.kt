@@ -252,6 +252,16 @@ class MapHandler {
         }
     }
 
+    // Ajoutez cette méthode pour exposer la distance parcourue
+    fun getDistanceTraveled(): Double {
+        return distanceTraveled
+    }
+
+    // Ajoutez cette méthode pour calculer la distance restante
+    fun getRemainingDistance(): Double {
+        return totalDistance - distanceTraveled
+    }
+
     fun reset() {
         path = null
         instructions = emptyList()

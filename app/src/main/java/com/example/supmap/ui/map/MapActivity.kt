@@ -887,13 +887,36 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         val selectedRoute = viewModel.uiState.value.availableRoutes.getOrNull(selectedRouteIndex)
 
         if (selectedRoute != null) {
-            val etaMillis = selectedRoute.path.time
+            // 1. Calculer et mettre à jour l'heure d'arrivée
             val currentTime = System.currentTimeMillis()
-            val arrivalTime = currentTime + etaMillis
-            val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
-            // Met à jour l'affichage de l'ETA
+            // Calculer le temps restant en fonction de la progression
+            val distanceTraveled = viewModel.getDistanceTraveled()
+            val totalDistance = selectedRoute.path.distance
+            val totalTimeMs = selectedRoute.path.time
+
+            // Calculer le pourcentage de progression
+            val progressPercent = if (totalDistance > 0) distanceTraveled / totalDistance else 0.0
+
+            // Calculer le temps restant proportionnellement à la distance restante
+            val remainingTimeMs = (totalTimeMs * (1 - progressPercent)).toLong()
+
+            // Calculer l'heure d'arrivée estimée
+            val arrivalTime = currentTime + remainingTimeMs
+            val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
             currentTimeText.text = "Arrivée à ${timeFormat.format(Date(arrivalTime))}"
+
+            // 2. Mettre à jour le temps restant
+            val remainingMins = (remainingTimeMs / 60000).toInt()
+            remainingTimeText.text = if (remainingMins < 1) "< 1 min" else "$remainingMins min"
+
+            // 3. Mettre à jour la distance restante
+            val remainingDistance = viewModel.getRemainingDistance()
+            remainingDistanceText.text = if (remainingDistance >= 1000) {
+                String.format("%.1f km", remainingDistance / 1000)
+            } else {
+                "${remainingDistance.toInt()} m"
+            }
         }
     }
 
@@ -906,7 +929,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                     updateEtaDynamically()
                 }
             }
-        }, 0, 15_000) // Toutes les 15 secondes
+        }, 0, 5000) // Toutes les 5 secondes au lieu de 15
     }
 
     private fun stopEtaTimer() {
