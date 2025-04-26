@@ -888,31 +888,34 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         )
 
         if (selectedRoute != null) {
-            // 1. Récupérer la distance restante
+            // Récupérer la distance restante
             val remainingDistance = viewModel.getRemainingDistance()
 
-            // 2. Récupérer la vitesse actuelle (en m/s)
+            // Récupérer la vitesse actuelle (en m/s)
             val currentSpeed = viewModel.currentLocation.value?.speed ?: 0f
 
-            // 3. Calculer le temps restant
+            // Calculer le temps restant
             val remainingTimeSeconds = if (currentSpeed > 0.5f) {
-                // Si on se déplace: distance ÷ vitesse
                 (remainingDistance / currentSpeed).toInt()
             } else {
-                // Si arrêté ou très lent: utiliser l'estimation originale
                 val progressPercent = 1 - (remainingDistance / selectedRoute.path.distance)
                 (selectedRoute.path.time * (1 - progressPercent) / 1000).toInt()
             }
 
-            // 4. Calculer l'heure d'arrivée
+            // Calculer l'heure d'arrivée
             val arrivalTime = System.currentTimeMillis() + (remainingTimeSeconds * 1000)
             val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
             currentTimeText.text = "Arrivée à ${timeFormat.format(Date(arrivalTime))}"
 
-            // 5. Mettre à jour le temps et la distance restants
-            val remainingMins = (remainingTimeSeconds / 60).coerceAtLeast(1)
-            remainingTimeText.text = "$remainingMins min"
+            // Mettre à jour le temps et la distance restants
+            val remainingMins = remainingTimeSeconds / 60
+            remainingTimeText.text = if (remainingMins < 1) {
+                "< 1 min"
+            } else {
+                "$remainingMins min"
+            }
 
+            // Formater la distance
             remainingDistanceText.text = if (remainingDistance >= 1000) {
                 String.format("%.1f km", remainingDistance / 1000)
             } else {
