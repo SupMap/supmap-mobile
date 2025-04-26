@@ -134,23 +134,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         setupGoogleMap()
         observeViewModel()
         observeIncidentStatus()
-        // dans onCreate(), en plus de l'observateur du bearing
-        lifecycleScope.launchWhenStarted {
-            viewModel.currentLocation
-                .filterNotNull()
-                .collect { loc ->
-                    if (::googleMap.isInitialized && viewModel.uiState.value.isNavigationMode) {
-                        val bearing = viewModel.currentBearing.value
-                        val cam = CameraPosition.Builder()
-                            .target(LatLng(loc.latitude, loc.longitude))
-                            .zoom(20f)
-                            .tilt(65f)
-                            .bearing(bearing)
-                            .build()
-                        googleMap.moveCamera(CameraUpdateFactory.newCameraPosition(cam))
-                    }
-                }
-        }
     }
 
     private fun getBitmapDescriptorFromVector(@DrawableRes id: Int): BitmapDescriptor {
@@ -567,11 +550,9 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                 val bearing = viewModel.currentBearing.value
                 val cam = CameraPosition.Builder()
                     .target(LatLng(loc.latitude, loc.longitude))
-                    .zoom(21f)
-                    .tilt(55f)
-                    //.zoom(20f)
-                    //.tilt(65f)
+                    .zoom(18.2f)
                     .bearing(bearing)
+                    .tilt(60f)
                     .build()
                 googleMap.moveCamera(CameraUpdateFactory.newCameraPosition(cam))
             }
@@ -621,9 +602,9 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
             val cameraPosition = CameraPosition.Builder()
                 .target(currentLatLng)
-                .zoom(18f)
+                .zoom(18.2f)
                 .bearing(bearing)
-                .tilt(65f)
+                .tilt(60f)
                 .build()
 
             googleMap.moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition))
