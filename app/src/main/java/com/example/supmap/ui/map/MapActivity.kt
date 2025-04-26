@@ -883,35 +883,36 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun updateEtaDynamically() {
-        val selectedRouteIndex = viewModel.uiState.value.selectedRouteIndex
-        val selectedRoute = viewModel.uiState.value.availableRoutes.getOrNull(selectedRouteIndex)
+        val selectedRoute = viewModel.uiState.value.availableRoutes.getOrNull(
+            viewModel.uiState.value.selectedRouteIndex
+        )
 
         if (selectedRoute != null) {
-            // 1. Calculer et mettre à jour l'heure d'arrivée
-            val currentTime = System.currentTimeMillis()
+            // 1. Récupérer la distance restante
+            val remainingDistance = viewModel.getRemainingDistance()
 
-            // Calculer le temps restant en fonction de la progression
-            val distanceTraveled = viewModel.getDistanceTraveled()
-            val totalDistance = selectedRoute.path.distance
-            val totalTimeMs = selectedRoute.path.time
+            // 2. Récupérer la vitesse actuelle (en m/s)
+            val currentSpeed = viewModel.currentLocation.value?.speed ?: 0f
 
-            // Calculer le pourcentage de progression
-            val progressPercent = if (totalDistance > 0) distanceTraveled / totalDistance else 0.0
+            // 3. Calculer le temps restant
+            val remainingTimeSeconds = if (currentSpeed > 0.5f) {
+                // Si on se déplace: distance ÷ vitesse
+                (remainingDistance / currentSpeed).toInt()
+            } else {
+                // Si arrêté ou très lent: utiliser l'estimation originale
+                val progressPercent = 1 - (remainingDistance / selectedRoute.path.distance)
+                (selectedRoute.path.time * (1 - progressPercent) / 1000).toInt()
+            }
 
-            // Calculer le temps restant proportionnellement à la distance restante
-            val remainingTimeMs = (totalTimeMs * (1 - progressPercent)).toLong()
-
-            // Calculer l'heure d'arrivée estimée
-            val arrivalTime = currentTime + remainingTimeMs
+            // 4. Calculer l'heure d'arrivée
+            val arrivalTime = System.currentTimeMillis() + (remainingTimeSeconds * 1000)
             val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
             currentTimeText.text = "Arrivée à ${timeFormat.format(Date(arrivalTime))}"
 
-            // 2. Mettre à jour le temps restant
-            val remainingMins = (remainingTimeMs / 60000).toInt()
-            remainingTimeText.text = if (remainingMins < 1) "< 1 min" else "$remainingMins min"
+            // 5. Mettre à jour le temps et la distance restants
+            val remainingMins = (remainingTimeSeconds / 60).coerceAtLeast(1)
+            remainingTimeText.text = "$remainingMins min"
 
-            // 3. Mettre à jour la distance restante
-            val remainingDistance = viewModel.getRemainingDistance()
             remainingDistanceText.text = if (remainingDistance >= 1000) {
                 String.format("%.1f km", remainingDistance / 1000)
             } else {
