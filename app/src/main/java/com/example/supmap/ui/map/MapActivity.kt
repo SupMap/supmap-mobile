@@ -51,6 +51,7 @@ import androidx.annotation.DrawableRes
 import androidx.core.content.ContextCompat
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.MapStyleOptions
 
 
 class MapActivity : AppCompatActivity(), OnMapReadyCallback {
@@ -478,6 +479,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun setupNavigationMode() {
         // Masquer les éléments du mode normal
+        //googleMap.isBuildingsEnabled = false
         routePlannerContainer.visibility = View.GONE
         accountButton.visibility = View.GONE
         startNavigationModeButton.visibility = View.GONE
@@ -507,6 +509,51 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // Configurer la carte pour le mode navigation
         if (::googleMap.isInitialized) {
+            // Appliquer un style simplifié à la carte pour le mode navigation
+            try {
+                val navigationStyle = """
+            [
+              {
+                "featureType": "poi",
+                "elementType": "labels",
+                "stylers": [
+                  { "visibility": "off" }
+                ]
+              },
+              {
+                "featureType": "poi.business",
+                "stylers": [
+                  { "visibility": "off" }
+                ]
+              },
+              {
+                "featureType": "poi.park",
+                "elementType": "labels",
+                "stylers": [
+                  { "visibility": "off" }
+                ]
+              },
+              {
+                "featureType": "transit",
+                "stylers": [
+                  { "visibility": "off" }
+                ]
+              }
+            ]
+            """
+                val success = googleMap.setMapStyle(MapStyleOptions(navigationStyle))
+                if (!success) {
+                    Log.e("MapActivity", "Style parsing failed")
+                }
+            } catch (e: Exception) {
+                Log.e(
+                    "MapActivity",
+                    "Impossible d'appliquer le style de navigation: ${e.message}",
+                    e
+                )
+            }
+
+            // Configuration des paramètres UI de la carte
             googleMap.uiSettings.apply {
                 isScrollGesturesEnabled = false
                 isZoomGesturesEnabled = false
@@ -514,13 +561,16 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                 isTiltGesturesEnabled = false
                 isMyLocationButtonEnabled = false
             }
+
             // Essayer de récupérer tout de suite la dernière position connue
             viewModel.currentLocation.value?.let { loc ->
                 val bearing = viewModel.currentBearing.value
                 val cam = CameraPosition.Builder()
                     .target(LatLng(loc.latitude, loc.longitude))
-                    .zoom(20f)
-                    .tilt(65f)
+                    .zoom(21f)
+                    .tilt(55f)
+                    //.zoom(20f)
+                    //.tilt(65f)
                     .bearing(bearing)
                     .build()
                 googleMap.moveCamera(CameraUpdateFactory.newCameraPosition(cam))
@@ -543,6 +593,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // Configurer la carte pour le mode normal
         if (::googleMap.isInitialized) {
+            googleMap.setMapStyle(null)
             googleMap.uiSettings.apply {
                 isScrollGesturesEnabled = true
                 isZoomGesturesEnabled = true
@@ -623,10 +674,13 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
             googleMap.addMarker(MarkerOptions().position(startPoint).title("Départ"))
             googleMap.addMarker(MarkerOptions().position(endPoint).title("Destination"))
 
+            // Dessiner la polyline avec une largeur adaptée au mode
+            val lineWidth = if (viewModel.uiState.value.isNavigationMode) 18f else 12f
+
             // Dessiner la polyline
             val polylineOptions = PolylineOptions()
                 .addAll(points)
-                .width(12f)
+                .width(lineWidth)
                 .color(android.graphics.Color.BLUE)
                 .geodesic(true)
 
