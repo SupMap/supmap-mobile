@@ -52,6 +52,9 @@ import androidx.core.content.ContextCompat
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.MapStyleOptions
+import java.util.Date
+import java.util.Timer
+import java.util.TimerTask
 
 
 class MapActivity : AppCompatActivity(), OnMapReadyCallback {
@@ -73,7 +76,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var navigationModeContainer: RelativeLayout
     private lateinit var navigationInstructionText: TextView
     private lateinit var navigationDistanceText: TextView
-    private lateinit var navigationEtaText: TextView
     private lateinit var exitNavigationButton: FloatingActionButton
     private lateinit var routePlannerContainer: LinearLayout
     private lateinit var permissionHandler: PermissionHandler
@@ -85,6 +87,10 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var nextInstructionContainer: LinearLayout
     private lateinit var nextInstructionText: TextView
     private var selectedDestination = ""
+    private lateinit var bottomNavigationCard: View
+    private lateinit var currentTimeText: TextView
+    private lateinit var remainingTimeText: TextView
+    private lateinit var remainingDistanceText: TextView
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -126,6 +132,10 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         }
 
         setContentView(R.layout.activity_map)
+        bottomNavigationCard = findViewById(R.id.bottomNavigationCard)
+        currentTimeText = bottomNavigationCard.findViewById(R.id.currentTimeText)
+        remainingTimeText = bottomNavigationCard.findViewById(R.id.remainingTimeText)
+        remainingDistanceText = bottomNavigationCard.findViewById(R.id.remainingDistanceText)
         reportIncidentFab = findViewById(R.id.reportIncidentFab)
         reportIncidentFab.setOnClickListener {
             showIncidentTypeSheet()
@@ -201,7 +211,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         navigationModeContainer = findViewById(R.id.navigationModeContainer)
         navigationInstructionText = findViewById(R.id.navigationInstructionText)
         navigationDistanceText = findViewById(R.id.navigationDistanceText)
-        navigationEtaText = findViewById(R.id.navigationEtaText)
         nextInstructionContainer = findViewById(R.id.nextInstructionContainer)
         nextInstructionText = findViewById(R.id.nextInstructionText)
 
@@ -461,6 +470,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun setupNavigationMode() {
+
         // Masquer les éléments du mode normal
         //googleMap.isBuildingsEnabled = false
         routePlannerContainer.visibility = View.GONE
@@ -470,24 +480,29 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // Afficher les éléments du mode navigation
         navigationModeContainer.visibility = View.VISIBLE
+        bottomNavigationCard.visibility = View.VISIBLE
+
 
         // Récupérer le temps de parcours de l'itinéraire sélectionné
         val selectedRouteIndex = viewModel.uiState.value.selectedRouteIndex
         val selectedRoute = viewModel.uiState.value.availableRoutes.getOrNull(selectedRouteIndex)
 
         if (selectedRoute != null) {
-            // Convertir le temps (en millisecondes) en minutes et secondes
+            updateEtaDynamically() // Centralise le calcul ETA !
+
+            // Afficher le temps et la distance restants
             val etaMillis = selectedRoute.path.time
-            val calendar = Calendar.getInstance()
-            calendar.add(Calendar.MILLISECOND, etaMillis.toInt())
-            val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-            navigationEtaText.text = "Arrivée : ${timeFormat.format(calendar.time)}"
-        } else {
-            // Fallback au cas où l'itinéraire ne serait pas disponible
-            val calendar = Calendar.getInstance()
-            calendar.add(Calendar.MINUTE, 15)
-            val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-            navigationEtaText.text = "Arrivée : ${timeFormat.format(calendar.time)}"
+            val remainingTimeMinutes = (etaMillis / 60000).toInt()
+            remainingTimeText.text =
+                if (remainingTimeMinutes < 1) "< 1 min" else "$remainingTimeMinutes min"
+
+            val remainingDistance = selectedRoute.path.distance
+            remainingDistanceText.text = if (remainingDistance < 1000)
+                "${remainingDistance.toInt()} m"
+            else
+                String.format("%.1f km", remainingDistance / 1000)
+
+            startEtaTimer()
         }
 
         // Configurer la carte pour le mode navigation
@@ -560,12 +575,15 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun setupNormalMode() {
+        stopEtaTimer()
         // Masquer les éléments du mode navigation
         navigationModeContainer.visibility = View.GONE
 
         // Afficher les éléments du mode normal
         routePlannerContainer.visibility = View.VISIBLE
         accountButton.visibility = View.VISIBLE
+        bottomNavigationCard.visibility = View.GONE
+        timer?.cancel()
 
         if (viewModel.uiState.value.hasRoute) {
             clearRouteButton.show()
@@ -848,9 +866,47 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    private fun updateEtaDynamically() {
+        val selectedRouteIndex = viewModel.uiState.value.selectedRouteIndex
+        val selectedRoute = viewModel.uiState.value.availableRoutes.getOrNull(selectedRouteIndex)
+
+        if (selectedRoute != null) {
+            val etaMillis = selectedRoute.path.time
+            val currentTime = System.currentTimeMillis()
+            val arrivalTime = currentTime + etaMillis
+            val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+
+            // Met à jour l'affichage de l'ETA
+            currentTimeText.text = "Arrivée à ${timeFormat.format(Date(arrivalTime))}"
+        }
+    }
+
+    private fun startEtaTimer() {
+        timer?.cancel()
+        timer = Timer()
+        timer?.schedule(object : TimerTask() {
+            override fun run() {
+                runOnUiThread {
+                    updateEtaDynamically()
+                }
+            }
+        }, 0, 15_000) // Toutes les 15 secondes
+    }
+
+    private fun stopEtaTimer() {
+        timer?.cancel()
+    }
+
 
     // Dans ton flow d’état, active ou désactive la visibilité du FAB
     private fun updateFabVisibility(isNavMode: Boolean) {
         reportIncidentFab.isVisible = isNavMode
+    }
+
+    private var timer: Timer? = null
+
+    override fun onDestroy() {
+        super.onDestroy()
+        timer?.cancel()
     }
 }

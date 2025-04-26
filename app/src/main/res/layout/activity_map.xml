@@ -207,6 +207,7 @@
                 android:orientation="vertical">
 
                 <!-- Barre supérieure avec ETA -->
+                <!-- Barre supérieure avec ETA - Vous pouvez la remplacer par un titre simple -->
                 <RelativeLayout
                     android:layout_width="match_parent"
                     android:layout_height="36dp"
@@ -216,19 +217,8 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_alignParentStart="true"
-                        android:layout_centerVertical="true"
-                        android:text="Arrivée prévue"
-                        android:textColor="@android:color/white"
-                        android:textSize="12sp" />
-
-                    <TextView
-                        android:id="@+id/navigationEtaText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_alignParentEnd="true"
-                        android:layout_centerVertical="true"
-                        android:text="15:30"
+                        android:layout_centerInParent="true"
+                        android:text="Instructions de navigation"
                         android:textColor="@android:color/white"
                         android:textSize="14sp"
                         android:textStyle="bold" />
@@ -345,4 +335,13 @@
             android:contentDescription="Quitter la navigation"
             app:fabSize="normal" />
     </RelativeLayout>
+    <!-- Ajoutez juste avant la fermeture du RelativeLayout principal, après le navigationModeContainer -->
+    <include
+        android:id="@+id/bottomNavigationCard"
+        layout="@layout/bottom_navigation_card"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_marginBottom="80dp"
+        android:visibility="gone" />
 </RelativeLayout>
