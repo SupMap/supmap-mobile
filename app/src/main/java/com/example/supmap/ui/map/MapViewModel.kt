@@ -4,7 +4,6 @@ import android.content.Context
 import android.location.Geocoder
 import android.location.Location
 import android.util.Log
-import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -17,121 +16,46 @@ import com.example.supmap.data.repository.IncidentRepository
 import com.example.supmap.util.LocationService
 import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import org.osmdroid.events.MapEvent
-import java.util.*
+import java.util.Locale
 
+/**
+ * Représente une option d'itinéraire issue de l'API
+ */
 data class RouteOption(
     val label: String,
-    val type: String, // "fastest", "noToll", "economical"
+    val type: String,
     val path: Path,
     val points: List<LatLng>,
     val segments: List<RouteSegment>
 )
 
+/**
+ * Segment pour affichage d'instruction
+ */
+data class RouteSegment(
+    val point: LatLng,
+    val instruction: String
+)
+
+/**
+ * ViewModel gérant la logique de carte et de navigation
+ */
 class MapViewModel(
     private val context: Context,
     private val directionsRepository: DirectionsRepository,
     private val locationService: LocationService,
     private val incidentRepository: IncidentRepository
-
 ) : ViewModel() {
-    // Dans la classe MapViewModel
-    private val _isChangingTravelMode = MutableStateFlow(false)
-    val isChangingTravelMode: StateFlow<Boolean> = _isChangingTravelMode
-    private val _incidentStatus = MutableSharedFlow<Boolean>()
-    val incidentStatus: SharedFlow<Boolean> = _incidentStatus
-    private val _uiState = MutableStateFlow(MapUiState())
-    val uiState: StateFlow<MapUiState> = _uiState
-    val currentLocation: StateFlow<Location?> = locationService.locationFlow
-    val currentBearing: StateFlow<Float> = locationService.bearingFlow
-    private val _incidents = MutableStateFlow<List<IncidentDto>>(emptyList())
-    val incidents: StateFlow<List<IncidentDto>> = _incidents
-    private val mapHandler = MapHandler()
 
-    // MutableStateFlow pour les instructions de navigation
-    private val _currentNavigation = MutableStateFlow<NavigationState?>(null)
-    val currentNavigation: StateFlow<NavigationState?> = _currentNavigation
-
-
-    init {
-        // Démarrer les mises à jour de localisation
-        locationService.startLocationUpdates()
-
-        // Surveiller les changements de localisation pour le suivi utilisateur
-        viewModelScope.launch {
-            locationService.locationFlow.collect { location ->
-                if (location != null && _uiState.value.isFollowingUser) {
-                    _uiState.update { it.copy(currentLocation = location) }
-                }
-            }
-        }
-
-        // Rafraîchir la liste des incidents toutes les 10s
-        viewModelScope.launch {
-            while (isActive) {
-                loadIncidents()
-                delay(10000)
-            }
-        }
-    }
-
-    // Classe pour représenter l'état de la navigation
-    data class NavigationState(
-        val currentInstruction: String,
-        val distanceToNext: Double,
-        val nextInstruction: String?,
-        val isDestinationReached: Boolean = false
-    )
-
-    fun reportIncident(typeId: Long, typeName: String) {
-        viewModelScope.launch {
-            val loc = locationService.getCurrentLocation()
-            if (loc == null) {
-                _incidentStatus.emit(false)
-                return@launch
-            }
-            val req = IncidentRequest(typeId, typeName, loc.latitude, loc.longitude)
-            // now createIncident returns Boolean
-            val success = incidentRepository.createIncident(req)
-            _incidentStatus.emit(success)
-        }
-    }
-
-    fun loadIncidents() {
-        viewModelScope.launch {
-            try {
-                val list = incidentRepository.fetchAllIncidents()
-                _incidents.value = list
-            } catch (e: Exception) {
-                Log.e("MapVM", "Erreur fetch incidents", e)
-            }
-        }
-    }
-
-    fun getCurrentLocation(): Location? {
-        return locationService.getCurrentLocation()
-    }
-
-    fun setTravelMode(mode: String) {
-        _uiState.update {
-            it.copy(
-                travelMode = mode,
-                // Réinitialiser les itinéraires quand on change de mode
-                availableRoutes = emptyList()
-            )
-        }
-
-        // Recalculer l'itinéraire avec le nouveau mode si une destination est définie
-        val destination = _uiState.value.currentDestination
-        if (destination.isNotEmpty()) {
-            calculateRoute(destination)
-        }
-    }
-
-    // Mettez à jour MapUiState pour inclure les nouveaux champs
+    // --- State Flows ---
     data class MapUiState(
         val isLoading: Boolean = false,
         val hasRoute: Boolean = false,
@@ -146,12 +70,91 @@ class MapViewModel(
         val currentLocation: Location? = null,
         val errorMessage: String? = null,
         val isRecalculation: Boolean = false,
-        // Nouveaux champs pour les itinéraires multiples
         val availableRoutes: List<RouteOption> = emptyList(),
         val selectedRouteIndex: Int = 0
     )
 
-    // Dans la classe MapViewModel, modifiez la méthode calculateRoute:
+    private val _uiState = MutableStateFlow(MapUiState())
+    val uiState: StateFlow<MapUiState> = _uiState
+
+    private val _incidentStatus = MutableSharedFlow<Boolean>()
+    val incidentStatus: SharedFlow<Boolean> = _incidentStatus
+
+    private val _incidents = MutableStateFlow<List<IncidentDto>>(emptyList())
+    val incidents: StateFlow<List<IncidentDto>> = _incidents
+
+    val currentLocation: StateFlow<Location?> = locationService.locationFlow
+    val currentBearing: StateFlow<Float> = locationService.bearingFlow
+
+    // --- Navigation State ---
+    data class NavigationState(
+        val currentInstruction: String,
+        val distanceToNext: Double,
+        val nextInstruction: String?,
+        val isDestinationReached: Boolean = false
+    )
+
+    private val _currentNavigation = MutableStateFlow<NavigationState?>(null)
+    val currentNavigation: StateFlow<NavigationState?> = _currentNavigation
+
+    // --- Internal handlers ---
+    private val mapHandler = MapHandler()
+    private var navigationListener: MapHandler.NavigationListener? = null
+
+    init {
+        // Démarrer la géolocalisation
+        locationService.startLocationUpdates()
+        viewModelScope.launch {
+            locationService.locationFlow
+                .filterNotNull()
+                .collect { loc ->
+                    if (_uiState.value.isFollowingUser) {
+                        _uiState.update { it.copy(currentLocation = loc) }
+                    }
+                }
+        }
+        // Rafraîchir les incidents périodiquement
+        viewModelScope.launch {
+            while (isActive) {
+                loadIncidents()
+                delay(10_000)
+            }
+        }
+    }
+
+    /** Charge les incidents depuis le backend */
+    fun loadIncidents() {
+        viewModelScope.launch {
+            try {
+                _incidents.value = incidentRepository.fetchAllIncidents()
+            } catch (e: Exception) {
+                Log.e("MapViewModel", "Erreur fetch incidents", e)
+            }
+        }
+    }
+
+    /** Envoie un signalement d'incident */
+    fun reportIncident(typeId: Long, typeName: String) {
+        viewModelScope.launch {
+            val loc = locationService.getCurrentLocation()
+            if (loc == null) {
+                _incidentStatus.emit(false)
+                return@launch
+            }
+            val req = IncidentRequest(typeId, typeName, loc.latitude, loc.longitude)
+            val success = incidentRepository.createIncident(req)
+            _incidentStatus.emit(success)
+        }
+    }
+
+    /** Change le mode de transport et recalcule si nécessaire */
+    fun setTravelMode(mode: String) {
+        _uiState.update { it.copy(travelMode = mode, availableRoutes = emptyList()) }
+        val dest = _uiState.value.currentDestination
+        if (dest.isNotEmpty()) calculateRoute(dest)
+    }
+
+    /** Calcule ou recalcule l'itinéraire vers une destination */
     fun calculateRoute(destination: String, isRecalculation: Boolean = false) {
         viewModelScope.launch {
             try {
@@ -163,9 +166,7 @@ class MapViewModel(
                         isRecalculation = isRecalculation
                     )
                 }
-
-                val currentLoc = locationService.getCurrentLocation()
-                if (currentLoc == null) {
+                val loc = locationService.getCurrentLocation() ?: run {
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -174,175 +175,126 @@ class MapViewModel(
                     }
                     return@launch
                 }
-
-                val startLatLng = LatLng(currentLoc.latitude, currentLoc.longitude)
-
-                // Géocodage de la destination
-                val geocoder = Geocoder(context, Locale.getDefault())
-                val destinationLocation =
-                    geocoder.getFromLocationName(destination, 1)?.firstOrNull()
-
-                if (destinationLocation == null) {
+                val startLatLng = LatLng(loc.latitude, loc.longitude)
+                // Géocoding
+                val addresses =
+                    Geocoder(context, Locale.getDefault()).getFromLocationName(destination, 1)
+                val address = addresses?.firstOrNull()
+                val endLatLng = address?.let { LatLng(it.latitude, it.longitude) } ?: run {
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            errorMessage = "Impossible de trouver la destination"
+                            errorMessage = "Destination introuvable"
                         )
                     }
                     return@launch
                 }
-
-                val destinationLatLng = LatLng(
-                    destinationLocation.latitude,
-                    destinationLocation.longitude
+                // Appel API
+                val respPair = directionsRepository.getDirections(
+                    startLatLng,
+                    endLatLng,
+                    _uiState.value.travelMode
                 )
-
-                // Obtenir l'itinéraire
-                val result = directionsRepository.getDirections(
-                    origin = startLatLng,
-                    destination = destinationLatLng,
-                    mode = _uiState.value.travelMode
-                )
-
-                if (result != null) {
-                    // Extraire la réponse de l'API
-                    val directionResponse = result.first
-
-                    // Liste pour stocker les différentes options d'itinéraires
-                    val routeOptions = mutableListOf<RouteOption>()
-
-                    // Traiter l'itinéraire le plus rapide s'il existe
-                    directionResponse.fastest?.paths?.firstOrNull()?.let { path ->
-                        val points = directionsRepository.decodePoly(path.points)
-                        val segments =
-                            createRouteSegments(points, path.instructions, destinationLatLng)
-                        routeOptions.add(
-                            RouteOption(
-                                label = "Meilleur itin.",
-                                type = "fastest",
-                                path = path,
-                                points = points,
-                                segments = segments
-                            )
-                        )
-                    }
-
-                    // Traiter l'itinéraire sans péage s'il existe
-                    directionResponse.noToll?.paths?.firstOrNull()?.let { path ->
-                        val points = directionsRepository.decodePoly(path.points)
-                        val segments =
-                            createRouteSegments(points, path.instructions, destinationLatLng)
-                        routeOptions.add(
-                            RouteOption(
-                                label = "Sans péage",
-                                type = "noToll",
-                                path = path,
-                                points = points,
-                                segments = segments
-                            )
-                        )
-                    }
-
-                    // Traiter l'itinéraire économique s'il existe
-                    directionResponse.economical?.paths?.firstOrNull()?.let { path ->
-                        val points = directionsRepository.decodePoly(path.points)
-                        val segments =
-                            createRouteSegments(points, path.instructions, destinationLatLng)
-                        routeOptions.add(
-                            RouteOption(
-                                label = "Économique",
-                                type = "economical",
-                                path = path,
-                                points = points,
-                                segments = segments
-                            )
-                        )
-                    }
-
-                    // Si aucun itinéraire n'est disponible
-                    if (routeOptions.isEmpty()) {
-                        _uiState.update {
-                            it.copy(
-                                isLoading = false,
-                                errorMessage = "Aucun itinéraire disponible"
-                            )
-                        }
-                        return@launch
-                    }
-
-                    // Utilisez le premier itinéraire par défaut
-                    val selectedOption = routeOptions[0]
-
+                if (respPair == null) {
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            routePoints = selectedOption.points,
-                            routeSegments = selectedOption.segments,
-                            startPoint = startLatLng,
-                            endPoint = destinationLatLng,
-                            hasRoute = true,
-                            errorMessage = null,
-                            isRecalculation = isRecalculation,
-                            availableRoutes = routeOptions,
-                            selectedRouteIndex = 0
+                            errorMessage = "Erreur calcul itinéraire"
                         )
                     }
-                } else {
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            errorMessage = "Impossible de calculer l'itinéraire"
-                        )
-                    }
+                    return@launch
                 }
-            } catch (e: Exception) {
-                Log.e("MapViewModel", "Error calculating route", e)
+                val (resp, _) = respPair
+                val options = mutableListOf<RouteOption>()
+                resp.fastest?.paths?.firstOrNull()?.let { path ->
+                    val pts = directionsRepository.decodePoly(path.points)
+                    val segs = createRouteSegments(pts, path.instructions, endLatLng)
+                    options.add(RouteOption("Meilleur itin.", "fastest", path, pts, segs))
+                }
+                resp.noToll?.paths?.firstOrNull()?.let { path ->
+                    val pts = directionsRepository.decodePoly(path.points)
+                    val segs = createRouteSegments(pts, path.instructions, endLatLng)
+                    options.add(RouteOption("Sans péage", "noToll", path, pts, segs))
+                }
+                resp.economical?.paths?.firstOrNull()?.let { path ->
+                    val pts = directionsRepository.decodePoly(path.points)
+                    val segs = createRouteSegments(pts, path.instructions, endLatLng)
+                    options.add(RouteOption("Économique", "economical", path, pts, segs))
+                }
+                if (options.isEmpty()) {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = "Aucun itinéraire dispo"
+                        )
+                    }
+                    return@launch
+                }
+                val selected = options[0]
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        errorMessage = "Erreur lors du calcul de l'itinéraire: ${e.message}",
-                        isRecalculation = false
+                        hasRoute = true,
+                        routePoints = selected.points,
+                        routeSegments = selected.segments,
+                        startPoint = startLatLng,
+                        endPoint = endLatLng,
+                        errorMessage = null,
+                        availableRoutes = options,
+                        selectedRouteIndex = 0
+                    )
+                }
+                // Si navigation en cours, ré-init MapHandler
+                if (isRecalculation && _uiState.value.isNavigationMode) {
+                    navigationListener?.let { listener ->
+                        mapHandler.initialize(selected.path, listener)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("MapViewModel", "Error calc route", e)
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "Erreur: ${e.message}"
                     )
                 }
             }
         }
     }
 
-    // Ajoutez cette méthode helper
+    /** Crée les segments pour les instructions */
     private fun createRouteSegments(
         points: List<LatLng>,
         instructions: List<Instruction>?,
         destinationLatLng: LatLng
     ): List<RouteSegment> {
         val segments = mutableListOf<RouteSegment>()
-
-        instructions?.forEach { instruction ->
-            if (instruction.point_index < points.size) {
-                val point = points[instruction.point_index]
-                segments.add(RouteSegment(point, instruction.text))
+        instructions?.forEach { instr ->
+            if (instr.point_index in points.indices) {
+                segments.add(RouteSegment(points[instr.point_index], instr.text))
             }
         }
-
         segments.add(RouteSegment(destinationLatLng, "Vous êtes arrivé à destination"))
         return segments
     }
 
-    // Ajoutez cette méthode pour changer d'itinéraire
+    /** Sélectionne un itinéraire alternatif */
     fun selectRoute(index: Int) {
         val routes = _uiState.value.availableRoutes
         if (index in routes.indices) {
-            val selectedRoute = routes[index]
+            val sel = routes[index]
             _uiState.update {
                 it.copy(
                     selectedRouteIndex = index,
-                    routePoints = selectedRoute.points,
-                    routeSegments = selectedRoute.segments,
-                    isFollowingUser = false      // AJOUTER CETTE LIGNE !
+                    routePoints = sel.points,
+                    routeSegments = sel.segments,
+                    isFollowingUser = false
                 )
             }
         }
     }
 
+    /** Vide l'itinéraire courant */
     fun clearRoute() {
         _uiState.update {
             it.copy(
@@ -358,47 +310,41 @@ class MapViewModel(
         }
     }
 
+    /** Passe en mode navigation et configure le listener */
     fun enterNavigationMode() {
-        val selectedRoute =
-            _uiState.value.availableRoutes.getOrNull(_uiState.value.selectedRouteIndex)
-        if (selectedRoute != null) {
-            // Initialiser avec le Path complet
-            mapHandler.initialize(
-                selectedRoute.path,
-                object : MapHandler.NavigationListener {
-                    override fun onInstructionChanged(
-                        instruction: Instruction,
-                        distanceToNext: Double,
-                        nextInstruction: Instruction?
-                    ) {
-                        _currentNavigation.value = NavigationState(
-                            currentInstruction = instruction.text,
-                            distanceToNext = distanceToNext,
-                            nextInstruction = nextInstruction?.text
-                        )
-                    }
-
-                    override fun onDestinationReached() {
-                        _currentNavigation.value = _currentNavigation.value?.copy(
-                            isDestinationReached = true
-                        )
-                    }
+        val selected = _uiState.value.availableRoutes.getOrNull(_uiState.value.selectedRouteIndex)
+        if (selected != null) {
+            navigationListener = object : MapHandler.NavigationListener {
+                override fun onInstructionChanged(
+                    instr: Instruction,
+                    dist: Double,
+                    next: Instruction?
+                ) {
+                    _currentNavigation.value = NavigationState(instr.text, dist, next?.text)
                 }
-            )
-        }
 
-        _uiState.update { it.copy(isNavigationMode = true) }
-        locationService.startNavigationLocationUpdates()
+                override fun onDestinationReached() {
+                    _currentNavigation.value =
+                        _currentNavigation.value?.copy(isDestinationReached = true)
+                }
 
-        viewModelScope.launch {
-            locationService.locationFlow.collect { location ->
-                location?.let {
-                    mapHandler.updateLocation(it)
+                override fun onOffRoute() {
+                    val dest = _uiState.value.currentDestination
+                    if (dest.isNotEmpty()) calculateRoute(dest, isRecalculation = true)
                 }
             }
+            mapHandler.initialize(selected.path, navigationListener!!)
+        }
+        _uiState.update { it.copy(isNavigationMode = true) }
+        locationService.startNavigationLocationUpdates()
+        viewModelScope.launch {
+            locationService.locationFlow
+                .filterNotNull()
+                .collect { loc -> mapHandler.updateLocation(loc) }
         }
     }
 
+    /** Quitte le mode navigation */
     fun exitNavigationMode() {
         mapHandler.reset()
         _currentNavigation.value = null
@@ -411,34 +357,25 @@ class MapViewModel(
         locationService.stopLocationUpdates()
     }
 
-    // Ajoutez ces méthodes pour accéder aux données de navigation
-    fun getDistanceTraveled(): Double {
-        return mapHandler.getDistanceTraveled()
-    }
+    /** Distance parcourue */
+    fun getDistanceTraveled() = mapHandler.getDistanceTraveled()
 
-    fun getRemainingDistance(): Double {
-        return mapHandler.getRemainingDistance()
-    }
+    /** Distance restante */
+    fun getRemainingDistance() = mapHandler.getRemainingDistance()
 
-    // Factory pour créer le ViewModel avec dépendances
+    /** Factory pour instancier le ViewModel avec injections */
     class Factory(private val context: Context) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(MapViewModel::class.java)) {
+                @Suppress("UNCHECKED_CAST")
                 return MapViewModel(
                     context,
                     DirectionsRepository(context),
                     LocationService(context),
-                    IncidentRepository(context)    // <--- ajouté
+                    IncidentRepository(context)
                 ) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class")
         }
     }
 }
-
-
-data class RouteSegment(
-    val point: LatLng,
-    val instruction: String
-)

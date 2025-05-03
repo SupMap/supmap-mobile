@@ -733,6 +733,8 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
             } else {
                 Log.d("MapActivity", "RECALCULATION - Not adjusting camera")
+                Toast.makeText(this, "Recalcul de l’itinéraire en cours…", Toast.LENGTH_SHORT)
+                    .show()
             }
         } catch (e: Exception) {
             Log.e("MapActivity", "Error drawing route: ${e.message}", e)

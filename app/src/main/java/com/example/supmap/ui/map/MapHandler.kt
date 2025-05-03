@@ -34,6 +34,12 @@ class MapHandler {
         5.0   // 5m fixes pour les instructions très courtes (<30m)
     private val DESTINATION_THRESHOLD = 20.0       // 20m de la destination pour considérer "arrivé"
 
+    // Seuil pour détecter l'écart hors-route
+    private val OFF_ROUTE_THRESHOLD = 30.0  // tolérance en mètres
+
+    // Flag pour ne pas spammer les callbacks off-route
+    private var offRouteSignaled = false
+
     interface NavigationListener {
         fun onInstructionChanged(
             instruction: Instruction,
@@ -42,10 +48,16 @@ class MapHandler {
         )
 
         fun onDestinationReached()
+
+        /** appelé quand l’utilisateur s’écarte de la route au-delà du seuil */
+        fun onOffRoute()
     }
 
     private var navigationListener: NavigationListener? = null
 
+    /**
+     * Initialise le handler avec le Path complet et le listener
+     */
     fun initialize(path: Path, listener: NavigationListener) {
         this.path = path
         this.instructions = path.instructions ?: emptyList()
@@ -56,25 +68,21 @@ class MapHandler {
         this.totalDistance = path.distance
 
         // Calculer les distances cumulées pour chaque instruction
-        var cumulativeDistance = 0.0
         cumulativeDistances.clear()
-
-        instructions.forEach { instruction ->
-            cumulativeDistance += instruction.distance
-            cumulativeDistances.add(cumulativeDistance)
-            Log.d(
-                TAG,
-                "Instruction: '${instruction.text}' - distance: ${instruction.distance} m, cumulative: $cumulativeDistance m"
-            )
+        var cum = 0.0
+        instructions.forEach { instr ->
+            cum += instr.distance
+            cumulativeDistances.add(cum)
+            Log.d(TAG, "Instruction '${instr.text}' - distance=${instr.distance}, cumul=$cum")
         }
 
         // Informer de la première instruction
         if (instructions.isNotEmpty()) {
-            val nextInstruction = if (instructions.size > 1) instructions[1] else null
-            navigationListener?.onInstructionChanged(
+            val next = if (instructions.size > 1) instructions[1] else null
+            listener.onInstructionChanged(
                 instructions[0],
                 instructions[0].distance,
-                nextInstruction
+                next
             )
         }
 
@@ -85,183 +93,177 @@ class MapHandler {
         )
     }
 
+    /**
+     * Doit être appelé à chaque mise à jour de localisation
+     */
     fun updateLocation(location: Location) {
-        if (instructions.isEmpty() || routePoints.isEmpty()) {
-            Log.d(TAG, "No active route or instructions")
-            return
-        }
+        if (instructions.isEmpty() || routePoints.isEmpty()) return
 
         val userLatLng = LatLng(location.latitude, location.longitude)
 
-        // Trouver la position la plus proche sur l'itinéraire
-        val (closestPoint, distanceToRoute) = findClosestPointOnRoute(userLatLng)
+        // 1) Détection off-route via PolyUtil
+        val onPath = PolyUtil.isLocationOnPath(
+            userLatLng,
+            routePoints,
+            true,
+            OFF_ROUTE_THRESHOLD
+        )
 
-        // Estimer la distance parcourue en fonction du point le plus proche
-        val newDistanceTraveled = estimateDistanceTraveled(closestPoint)
+        if (!onPath) {
+            if (!offRouteSignaled) {
+                offRouteSignaled = true
+                Log.d(TAG, "Utilisateur hors-route (> $OFF_ROUTE_THRESHOLD m)")
+                navigationListener?.onOffRoute()
+            }
+            return
+        } else {
+            offRouteSignaled = false
+        }
 
-        // Si on a progressé, mettre à jour la distance parcourue
-        if (newDistanceTraveled > distanceTraveled) {
-            val progress = newDistanceTraveled - distanceTraveled
-            Log.d(TAG, "Progress: +$progress meters, total: $newDistanceTraveled")
-            distanceTraveled = newDistanceTraveled
+        // 2) Estimer la distance parcourue le long de l'itinéraire
+        val (closestPoint, _) = findClosestPointOnRoute(userLatLng)
+        val newDistance = estimateDistanceTraveled(closestPoint)
 
-            // Vérifier si nous devons passer à l'instruction suivante
+        if (newDistance > distanceTraveled) {
+            val progress = newDistance - distanceTraveled
+            Log.d(TAG, "Progress: +$progress meters, total: $newDistance")
+            distanceTraveled = newDistance
+
+            // Vérifier si on doit passer à l'instruction suivante ou signaler arrivée
             checkForInstructionChange()
         }
     }
 
-    private fun findClosestPointOnRoute(userLocation: LatLng): Pair<LatLng, Double> {
-        var closestPoint = routePoints[0]
-        var minDistance = Double.MAX_VALUE
 
-        for (point in routePoints) {
-            val distance = calculateDistance(userLocation, point)
-            if (distance < minDistance) {
-                minDistance = distance
-                closestPoint = point
+    /**
+     * Trouve le point sur la route le plus proche de l'utilisateur, retourne ce point et la distance
+     */
+    private fun findClosestPointOnRoute(userLocation: LatLng): Pair<LatLng, Double> {
+        var closest = routePoints[0]
+        var minDist = Double.MAX_VALUE
+        for (pt in routePoints) {
+            val dist = calculateDistance(userLocation, pt)
+            if (dist < minDist) {
+                minDist = dist
+                closest = pt
             }
         }
-
-        return Pair(closestPoint, minDistance)
+        return Pair(closest, minDist)
     }
 
-    private fun calculateDistance(point1: LatLng, point2: LatLng): Double {
+    /**
+     * Calcule la distance (en m) entre deux points
+     */
+    private fun calculateDistance(p1: LatLng, p2: LatLng): Double {
         val results = FloatArray(1)
         Location.distanceBetween(
-            point1.latitude, point1.longitude,
-            point2.latitude, point2.longitude,
+            p1.latitude, p1.longitude,
+            p2.latitude, p2.longitude,
             results
         )
         return results[0].toDouble()
     }
 
+    /**
+     * Estime la distance parcourue le long de la route en sommant les segments
+     */
     private fun estimateDistanceTraveled(currentPoint: LatLng): Double {
-        // Trouver l'index du point le plus proche dans la liste des points
-        var closestIndex = 0
-        var minDistance = Double.MAX_VALUE
-
-        for (i in routePoints.indices) {
-            val distance = calculateDistance(currentPoint, routePoints[i])
-            if (distance < minDistance) {
-                minDistance = distance
-                closestIndex = i
+        var closestIdx = 0
+        var minDist = Double.MAX_VALUE
+        routePoints.forEachIndexed { idx, pt ->
+            val d = calculateDistance(currentPoint, pt)
+            if (d < minDist) {
+                minDist = d
+                closestIdx = idx
             }
         }
-
-        // Calculer la distance jusqu'à ce point
-        var distance = 0.0
-        for (i in 0 until closestIndex) {
-            distance += calculateDistance(routePoints[i], routePoints[i + 1])
+        var dist = 0.0
+        for (i in 0 until closestIdx) {
+            dist += calculateDistance(routePoints[i], routePoints[i + 1])
         }
-
-        return distance
+        return dist
     }
 
+    /**
+     * Vérifie si l'on doit passer à la prochaine instruction ou signaler l'arrivée
+     */
     private fun checkForInstructionChange() {
-        // S'assurer que nous avons des instructions
         if (instructions.isEmpty() || currentInstructionIndex >= instructions.size) {
             return
         }
 
-        // Si nous sommes déjà à la dernière instruction "Arrivée"
+        // Si dernière instruction (arrivée)
         if (currentInstructionIndex == instructions.size - 1) {
-            // Vérifier si on est vraiment arrivé (à moins de DESTINATION_THRESHOLD mètres)
-            val distanceToEnd = totalDistance - distanceTraveled
-
-            if (distanceToEnd <= DESTINATION_THRESHOLD) {
+            val remaining = totalDistance - distanceTraveled
+            if (remaining <= DESTINATION_THRESHOLD) {
                 navigationListener?.onDestinationReached()
             } else {
-                // Mettre à jour la distance restante
                 navigationListener?.onInstructionChanged(
                     instructions[currentInstructionIndex],
-                    distanceToEnd,
+                    remaining,
                     null
                 )
             }
             return
         }
 
-        // --- Logique pour déterminer quand passer à l'instruction suivante ---
-
-        // Distance jusqu'au début de l'instruction actuelle
-        val startOfCurrentInstruction = if (currentInstructionIndex == 0) 0.0
-        else cumulativeDistances[currentInstructionIndex - 1]
-
-        // Distance jusqu'à la fin de l'instruction actuelle
-        val endOfCurrentInstruction = cumulativeDistances[currentInstructionIndex]
-
-        // Longueur de l'instruction actuelle
-        val instructionLength = instructions[currentInstructionIndex].distance
-
-        // Calculer le seuil adaptatif en fonction de la longueur de l'instruction
+        // Calcul des seuils adaptatifs
+        val startOfCurrent =
+            if (currentInstructionIndex == 0) 0.0 else cumulativeDistances[currentInstructionIndex - 1]
+        val endOfCurrent = cumulativeDistances[currentInstructionIndex]
+        val length = instructions[currentInstructionIndex].distance
         val threshold = when {
-            instructionLength > 100 -> endOfCurrentInstruction - (instructionLength * (1 - LONG_INSTRUCTION_THRESHOLD))
-            instructionLength > 30 -> endOfCurrentInstruction - (instructionLength * (1 - MEDIUM_INSTRUCTION_THRESHOLD))
-            else -> endOfCurrentInstruction - SHORT_INSTRUCTION_DISTANCE
+            length > 100 -> endOfCurrent - (length * (1 - LONG_INSTRUCTION_THRESHOLD))
+            length > 30 -> endOfCurrent - (length * (1 - MEDIUM_INSTRUCTION_THRESHOLD))
+            else -> endOfCurrent - SHORT_INSTRUCTION_DISTANCE
         }
 
-        // Vérifier si on a atteint le seuil pour passer à l'instruction suivante
         if (distanceTraveled >= threshold) {
-            // Passer à l'instruction suivante
             currentInstructionIndex++
             Log.d(
                 TAG,
                 "Moving to instruction $currentInstructionIndex: ${instructions[currentInstructionIndex].text}"
             )
 
-            val nextInstruction = if (currentInstructionIndex < instructions.size - 1) {
-                instructions[currentInstructionIndex + 1]
-            } else null
-
-            // Calculer la distance déjà parcourue dans cette nouvelle instruction
-            val startOfNewInstruction = if (currentInstructionIndex == 0) 0.0
-            else cumulativeDistances[currentInstructionIndex - 1]
-
-            val distanceIntoNewInstruction = distanceTraveled - startOfNewInstruction
-
-            // Calculer la distance restante dans cette nouvelle instruction
-            val totalDistanceForInstruction = instructions[currentInstructionIndex].distance
-            val remainingDistance =
-                Math.max(0.0, totalDistanceForInstruction - distanceIntoNewInstruction)
-
-            // Pour les instructions très courtes, utiliser une distance minimale
-            val distanceToShow = if (remainingDistance < 20) {
-                20.0  // Minimum 20 mètres pour l'affichage
-            } else {
-                remainingDistance
-            }
+            val nextInstr =
+                if (currentInstructionIndex < instructions.size - 1) instructions[currentInstructionIndex + 1] else null
+            val startOfNew =
+                if (currentInstructionIndex == 0) 0.0 else cumulativeDistances[currentInstructionIndex - 1]
+            val traveledInNew = distanceTraveled - startOfNew
+            val remainingInNew =
+                (instructions[currentInstructionIndex].distance - traveledInNew).coerceAtLeast(0.0)
+            val distanceToShow = if (remainingInNew < 20) 20.0 else remainingInNew
 
             navigationListener?.onInstructionChanged(
                 instructions[currentInstructionIndex],
                 distanceToShow,
-                nextInstruction
+                nextInstr
             )
         } else {
-            // Mettre à jour la distance restante jusqu'à la fin de l'instruction actuelle
-            val remainingDistance = endOfCurrentInstruction - distanceTraveled
-
-            val nextInstruction = if (currentInstructionIndex < instructions.size - 1) {
-                instructions[currentInstructionIndex + 1]
-            } else null
-
+            val remaining = endOfCurrent - distanceTraveled
+            val nextInstr =
+                if (currentInstructionIndex < instructions.size - 1) instructions[currentInstructionIndex + 1] else null
             navigationListener?.onInstructionChanged(
                 instructions[currentInstructionIndex],
-                remainingDistance,
-                nextInstruction
+                remaining,
+                nextInstr
             )
         }
     }
 
-    // Ajoutez cette méthode pour exposer la distance parcourue
-    fun getDistanceTraveled(): Double {
-        return distanceTraveled
-    }
+    /**
+     * Distance totale déjà parcourue
+     */
+    fun getDistanceTraveled(): Double = distanceTraveled
 
-    // Ajoutez cette méthode pour calculer la distance restante
-    fun getRemainingDistance(): Double {
-        return totalDistance - distanceTraveled
-    }
+    /**
+     * Distance restante jusqu'à la destination
+     */
+    fun getRemainingDistance(): Double = totalDistance - distanceTraveled
 
+    /**
+     * Réinitialise tous les états internes
+     */
     fun reset() {
         path = null
         instructions = emptyList()
@@ -269,6 +271,7 @@ class MapHandler {
         currentInstructionIndex = 0
         distanceTraveled = 0.0
         cumulativeDistances.clear()
+        offRouteSignaled = false
         navigationListener = null
     }
 }
