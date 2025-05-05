@@ -158,6 +158,7 @@ class MapViewModel(
     fun calculateRoute(destination: String, isRecalculation: Boolean = false) {
         viewModelScope.launch {
             try {
+                // 1) Passage en état de chargement
                 _uiState.update {
                     it.copy(
                         isLoading = true,
@@ -166,6 +167,8 @@ class MapViewModel(
                         isRecalculation = isRecalculation
                     )
                 }
+
+                // 2) Récupération de la position de départ
                 val loc = locationService.getCurrentLocation() ?: run {
                     _uiState.update {
                         it.copy(
@@ -176,9 +179,10 @@ class MapViewModel(
                     return@launch
                 }
                 val startLatLng = LatLng(loc.latitude, loc.longitude)
-                // Géocoding
-                val addresses =
-                    Geocoder(context, Locale.getDefault()).getFromLocationName(destination, 1)
+
+                // 3) Géocodage de la destination
+                val addresses = Geocoder(context, Locale.getDefault())
+                    .getFromLocationName(destination, 1)
                 val address = addresses?.firstOrNull()
                 val endLatLng = address?.let { LatLng(it.latitude, it.longitude) } ?: run {
                     _uiState.update {
@@ -189,7 +193,8 @@ class MapViewModel(
                     }
                     return@launch
                 }
-                // Appel API
+
+                // 4) Appel à l’API GraphHopper
                 val respPair = directionsRepository.getDirections(
                     startLatLng,
                     endLatLng,
@@ -205,6 +210,8 @@ class MapViewModel(
                     return@launch
                 }
                 val (resp, _) = respPair
+
+                // 5) Construction brut des options
                 val options = mutableListOf<RouteOption>()
                 resp.fastest?.paths?.firstOrNull()?.let { path ->
                     val pts = directionsRepository.decodePoly(path.points)
@@ -221,35 +228,49 @@ class MapViewModel(
                     val segs = createRouteSegments(pts, path.instructions, endLatLng)
                     options.add(RouteOption("Économique", "economical", path, pts, segs))
                 }
+
                 if (options.isEmpty()) {
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            errorMessage = "Aucun itinéraire dispo"
+                            errorMessage = "Aucun itinéraire disponible"
                         )
                     }
                     return@launch
                 }
-                val selected = options[0]
+
+                // 6) Filtrage pour ne garder que les tracés uniques
+                val seen = mutableSetOf<String>()
+                val uniqueRoutes = options.filter { opt ->
+                    // opt.path.points est la chaîne encodée de la polyline
+                    seen.add(opt.path.points)
+                }
+
+                // 7) Sélection du premier itinéraire unique
+                val selected = uniqueRoutes.first()
+
+                // 8) Mise à jour du UIState avec les itinéraires filtrés
                 _uiState.update {
                     it.copy(
                         isLoading = false,
                         hasRoute = true,
+                        availableRoutes = uniqueRoutes,
+                        selectedRouteIndex = 0,
                         routePoints = selected.points,
                         routeSegments = selected.segments,
                         startPoint = startLatLng,
                         endPoint = endLatLng,
-                        errorMessage = null,
-                        availableRoutes = options,
-                        selectedRouteIndex = 0
+                        errorMessage = null
                     )
                 }
-                // Si navigation en cours, ré-init MapHandler
+
+                // 9) Si on est déjà en mode navigation, on ré-initialise le handler
                 if (isRecalculation && _uiState.value.isNavigationMode) {
                     navigationListener?.let { listener ->
                         mapHandler.initialize(selected.path, listener)
                     }
                 }
+
             } catch (e: Exception) {
                 Log.e("MapViewModel", "Error calc route", e)
                 _uiState.update {
@@ -261,6 +282,7 @@ class MapViewModel(
             }
         }
     }
+
 
     /** Crée les segments pour les instructions */
     private fun createRouteSegments(
