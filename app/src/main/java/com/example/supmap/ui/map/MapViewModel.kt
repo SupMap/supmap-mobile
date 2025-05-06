@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.supmap.data.api.IncidentApiClient
 import com.example.supmap.data.api.IncidentDto
 import com.example.supmap.data.api.IncidentRequest
 import com.example.supmap.data.api.Instruction
@@ -71,8 +72,10 @@ class MapViewModel(
         val errorMessage: String? = null,
         val isRecalculation: Boolean = false,
         val availableRoutes: List<RouteOption> = emptyList(),
-        val selectedRouteIndex: Int = 0
-    )
+        val selectedRouteIndex: Int = 0,
+        val incidentToRate: IncidentDto? = null,
+
+        )
 
     private val _uiState = MutableStateFlow(MapUiState())
     val uiState: StateFlow<MapUiState> = _uiState
@@ -85,6 +88,12 @@ class MapViewModel(
 
     val currentLocation: StateFlow<Location?> = locationService.locationFlow
     val currentBearing: StateFlow<Float> = locationService.bearingFlow
+
+    private val _incidentToRate = MutableStateFlow<IncidentDto?>(null)
+    val incidentToRate: StateFlow<IncidentDto?> = _incidentToRate
+    private var lastCreatedIncidentLocation: LatLng? = null
+    private var lastCreatedIncidentTime: Long = 0
+    private val ratedIncidentIds = mutableSetOf<Long>()
 
     // --- Navigation State ---
     data class NavigationState(
@@ -120,6 +129,110 @@ class MapViewModel(
                 delay(10_000)
             }
         }
+        viewModelScope.launch {
+            locationService.locationFlow
+                .filterNotNull()
+                .collect { loc ->
+                    if (_uiState.value.isFollowingUser) {
+                        _uiState.update { it.copy(currentLocation = loc) }
+                    }
+                    checkNearbyIncidents(loc)  // Ajoutez cette ligne
+                }
+        }
+    }
+
+    // Ajoutez cette méthode pour vérifier les incidents proches
+    private fun checkNearbyIncidents(currentLocation: Location) {
+        // Ne vérifier que si on est en mode navigation
+        if (!_uiState.value.isNavigationMode) {
+            _incidentToRate.value = null
+            return
+        }
+
+        val currentTime = System.currentTimeMillis()
+        val currentLatLng = LatLng(currentLocation.latitude, currentLocation.longitude)
+
+        // Vérifier si on est proche d'un incident récemment créé (moins de 5 minutes)
+        val isNearRecentlyCreatedIncident = lastCreatedIncidentLocation?.let { lastLoc ->
+            val timeDiff = currentTime - lastCreatedIncidentTime
+            val distanceToLastCreated = haversineDistance(
+                currentLatLng.latitude, currentLatLng.longitude,
+                lastLoc.latitude, lastLoc.longitude
+            )
+
+            // Si moins de 5 minutes et moins de 30 mètres de distance
+            timeDiff < 5 * 60 * 1000 && distanceToLastCreated < 30
+        } ?: false
+
+        // Si on est près d'un incident récemment créé, ne pas afficher de popup
+        if (isNearRecentlyCreatedIncident) {
+            _incidentToRate.value = null
+            return
+        }
+
+        viewModelScope.launch {
+            for (incident in _incidents.value) {
+                // Ignorer les incidents déjà notés
+                if (incident.id in ratedIncidentIds) {
+                    continue
+                }
+
+                // Votre code existant pour calculer la distance...
+                val incidentLatLng = LatLng(incident.latitude, incident.longitude)
+                val distance = haversineDistance(
+                    currentLatLng.latitude, currentLatLng.longitude,
+                    incidentLatLng.latitude, incidentLatLng.longitude
+                )
+
+                if (distance <= 20 && _incidentToRate.value == null) {
+                    _incidentToRate.value = incident
+                    break
+                }
+            }
+        }
+    }
+
+    // Méthode pour calculer la distance (formule de Haversine)
+    private fun haversineDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val R = 6371e3 // rayon de la Terre en mètres
+        val φ1 = lat1 * Math.PI / 180
+        val φ2 = lat2 * Math.PI / 180
+        val Δφ = (lat2 - lat1) * Math.PI / 180
+        val Δλ = (lon2 - lon1) * Math.PI / 180
+
+        val a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ / 2) * Math.sin(Δλ / 2)
+        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+
+        return R * c // en mètres
+    }
+
+    // Méthode pour noter un incident
+    fun rateIncident(incidentId: Long, isPositive: Boolean) {
+        viewModelScope.launch {
+            try {
+                // Marquer l'incident comme traité immédiatement
+                ratedIncidentIds.add(incidentId)
+
+                // Fermer la popup
+                _incidentToRate.value = null
+
+                // Utiliser le repository pour appeler l'API
+                val success = incidentRepository.rateIncident(incidentId, isPositive)
+
+                if (success) {
+                    Log.d(
+                        "MapViewModel",
+                        "Incident noté avec succès: $incidentId, positive: $isPositive"
+                    )
+                } else {
+                    Log.e("MapViewModel", "Erreur lors de la notation de l'incident")
+                }
+            } catch (e: Exception) {
+                Log.e("MapViewModel", "Exception lors de la notation: ${e.message}", e)
+            }
+        }
     }
 
     /** Charge les incidents depuis le backend */
@@ -134,15 +247,26 @@ class MapViewModel(
     }
 
     /** Envoie un signalement d'incident */
-    fun reportIncident(typeId: Long, typeName: String) {
+    fun reportIncident(id: Long, typeName: String) {
         viewModelScope.launch {
             val loc = locationService.getCurrentLocation()
             if (loc == null) {
                 _incidentStatus.emit(false)
                 return@launch
             }
-            val req = IncidentRequest(typeId, typeName, loc.latitude, loc.longitude)
+
+            val req = IncidentRequest(id, typeName, loc.latitude, loc.longitude)
             val success = incidentRepository.createIncident(req)
+
+            if (success) {
+                // Mémoriser la position et l'heure de création
+                lastCreatedIncidentLocation = LatLng(loc.latitude, loc.longitude)
+                lastCreatedIncidentTime = System.currentTimeMillis()
+
+                // Recharger les incidents
+                loadIncidents()
+            }
+
             _incidentStatus.emit(success)
         }
     }
@@ -283,6 +407,10 @@ class MapViewModel(
         }
     }
 
+    // Réinitialiser les incidents notés (à appeler quand on quitte le mode navigation)
+    fun resetRatedIncidents() {
+        ratedIncidentIds.clear()
+    }
 
     /** Crée les segments pour les instructions */
     private fun createRouteSegments(
@@ -372,6 +500,9 @@ class MapViewModel(
         _currentNavigation.value = null
         _uiState.update { it.copy(isNavigationMode = false) }
         locationService.stopNavigationLocationUpdates()
+        resetRatedIncidents()
+        lastCreatedIncidentLocation = null  // Ajoutez cette ligne
+        lastCreatedIncidentTime = 0         // Ajoutez cette ligne
     }
 
     override fun onCleared() {

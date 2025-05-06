@@ -4,9 +4,12 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Path
+import retrofit2.http.Query
 
 // DTO envoyés et reçus par Retrofit
 data class IncidentDto(
+    val id: Long, // Assurez-vous que l'id est présent
     val typeId: Long,
     val typeName: String,
     val latitude: Double,
@@ -18,34 +21,6 @@ data class IncidentRequest(
     val typeName: String,
     val latitude: Double,
     val longitude: Double
-)
-
-data class IncidentResponse(
-    val id: Long,
-    val type: IncidentType,
-    val createdAt: String,
-    val expirationDate: String,
-    val confirmedByUser: ConfirmedByUser,
-    val location: Any // tu peux préciser ici ta structure de GeometryDto si nécessaire
-)
-
-data class IncidentType(
-    val id: Long,
-    val name: String,
-    val weight: Double,
-    val category: IncidentCategory
-)
-
-data class IncidentCategory(
-    val id: Long,
-    val name: String
-)
-
-data class ConfirmedByUser(
-    val id: Long,
-    val username: String,
-    val name: String,
-    // … autres champs
 )
 
 /**
@@ -60,8 +35,19 @@ interface IncidentApiService {
 
     @GET("user/incidents")
     suspend fun getUserIncidents(): List<IncidentDto>
-}
 
+    /**
+     * Méthode pour noter un incident (confirmer ou infirmer sa présence)
+     * @param id L'identifiant de l'incident
+     * @param positive true pour confirmer, false pour infirmer
+     * @return Une réponse HTTP sans corps
+     */
+    @GET("incident/{id}/rate")
+    suspend fun rateIncident(
+        @Path("id") id: Long,
+        @Query("positive") positive: Boolean
+    ): Response<Void>
+}
 
 object IncidentApiClient {
     val service: IncidentApiService = NetworkModule.createService()

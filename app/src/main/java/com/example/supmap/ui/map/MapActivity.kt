@@ -1,5 +1,6 @@
 package com.example.supmap.ui.map
 
+import android.app.Dialog
 import android.content.Context
 import android.content.Intent
 import android.content.res.ColorStateList
@@ -47,14 +48,24 @@ import java.util.Calendar
 import java.util.Locale
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.view.Gravity
+import android.view.Window
+import android.view.WindowManager
 import androidx.annotation.DrawableRes
 import androidx.core.content.ContextCompat
+import com.example.supmap.data.api.IncidentDto
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.MapStyleOptions
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import java.util.Date
 import java.util.Timer
 import java.util.TimerTask
+import android.widget.PopupWindow
+import android.view.ViewGroup
 
 
 class MapActivity : AppCompatActivity(), OnMapReadyCallback {
@@ -91,6 +102,11 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var currentTimeText: TextView
     private lateinit var remainingTimeText: TextView
     private lateinit var remainingDistanceText: TextView
+    private var incidentRatingPopup: PopupWindow? = null
+
+    // Ajoutez ces propriétés à la classe MapActivity
+    private var incidentRatingDialog: Dialog? = null
+    private var incidentRatingTimeoutJob: Job? = null
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -144,6 +160,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         setupGoogleMap()
         observeViewModel()
         observeIncidentStatus()
+        observeNearbyIncidentsForRating()
         lifecycleScope.launchWhenStarted {
             viewModel.currentLocation
                 .filterNotNull()
@@ -650,7 +667,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         incidents.forEach { dto ->
             val pos = LatLng(dto.latitude, dto.longitude)
             val iconRes = IncidentTypeProvider.allTypes
-                .find { it.id == dto.typeId }
+                .find { it.id == dto.id }
                 ?.iconRes
                 ?: R.drawable.ic_incident_report
 
@@ -829,7 +846,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                     val pos = LatLng(dto.latitude, dto.longitude)
                     // trouve l’icône correspondante
                     val iconRes = IncidentTypeProvider.allTypes
-                        .find { it.id == dto.typeId }
+                        .find { it.id == dto.id }
                         ?.iconRes
                         ?: R.drawable.ic_incident_report // fallback
 
@@ -926,6 +943,41 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
+    private fun observeNearbyIncidentsForRating() {
+        Log.d("MapActivity", "Démarrage observation incidents pour notation")
+        lifecycleScope.launch {
+            viewModel.incidentToRate.collect { incident ->
+                Log.d("MapActivity", "Changement incident à noter: $incident")
+                if (incident != null) {
+                    showIncidentRatingDialog(incident)
+                } else {
+                    dismissIncidentRatingDialog()
+                }
+            }
+        }
+    }
+
+    private fun showIncidentRatingDialog(incident: IncidentDto) {
+        // Créer et afficher le fragment de dialogue
+        val dialogFragment =
+            IncidentRatingDialogFragment.newInstance(incident) { incidentId, isPositive ->
+                viewModel.rateIncident(incidentId, isPositive)
+                Toast.makeText(
+                    this,
+                    if (isPositive) "Incident confirmé" else "Incident marqué comme résolu",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+
+        dialogFragment.show(supportFragmentManager, "incident_rating")
+    }
+
+    private fun dismissIncidentRatingDialog() {
+        incidentRatingPopup?.dismiss()
+        incidentRatingPopup = null
+        incidentRatingTimeoutJob?.cancel()
+    }
+
     private fun startEtaTimer() {
         timer?.cancel()
         timer = Timer()
@@ -953,5 +1005,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onDestroy() {
         super.onDestroy()
         timer?.cancel()
+        incidentRatingTimeoutJob?.cancel() // Ajoutez cette ligne
+        incidentRatingDialog?.dismiss()     // Ajoutez cette ligne
     }
 }
