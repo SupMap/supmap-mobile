@@ -11,6 +11,8 @@ import kotlinx.coroutines.launch
 
 class LoginViewModel(private val authService: AuthService) : ViewModel() {
 
+    private val _googleSignInState = MutableStateFlow<LoginState>(LoginState.Idle)
+    val googleSignInState: StateFlow<LoginState> = _googleSignInState
     private val _loginState = MutableStateFlow<LoginState>(LoginState.Idle)
     val loginState: StateFlow<LoginState> = _loginState
 
@@ -24,6 +26,21 @@ class LoginViewModel(private val authService: AuthService) : ViewModel() {
                 }
                 .onFailure { error ->
                     _loginState.value = LoginState.Error(error.message ?: "Erreur de connexion")
+                }
+        }
+    }
+
+    fun loginWithGoogle(idToken: String) {
+        _googleSignInState.value = LoginState.Loading
+
+        viewModelScope.launch {
+            authService.loginWithGoogle(idToken)
+                .onSuccess {
+                    _googleSignInState.value = LoginState.Success
+                }
+                .onFailure { error ->
+                    _googleSignInState.value =
+                        LoginState.Error(error.message ?: "Erreur d'authentification Google")
                 }
         }
     }
@@ -50,3 +67,4 @@ sealed class LoginState {
     object Success : LoginState()
     data class Error(val message: String) : LoginState()
 }
+

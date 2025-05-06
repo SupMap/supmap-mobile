@@ -51,7 +51,10 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
 
-
+// Firebase Auth
+    implementation("com.google.firebase:firebase-auth-ktx:22.3.0")
+// Google Sign-In
+    implementation("com.google.android.gms:play-services-auth:20.7.0")
 
     implementation("com.squareup.retrofit2:converter-scalars:2.9.0")
 

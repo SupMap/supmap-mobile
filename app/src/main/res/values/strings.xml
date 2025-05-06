@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">SUPMAP</string>
     <string name="google_maps_key">AIzaSyCvN0DIzZqhtYovIO-M62E9fwsAKiGcP4g</string>
+    <string name="default_web_client_id">995027438045-tilac9dqvgop9832qcrd687nlcsapvki.apps.googleusercontent.com</string>
 </resources>

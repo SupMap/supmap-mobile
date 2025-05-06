@@ -2,6 +2,7 @@ package com.example.supmap.data.repository
 
 import android.content.Context
 import android.util.Log
+import com.example.supmap.data.api.GoogleTokenRequest
 import com.example.supmap.data.api.ApiService
 import com.example.supmap.data.api.LoginRequest
 import com.example.supmap.data.api.NetworkModule
@@ -63,6 +64,28 @@ class AuthService(private val context: Context) {
                 Result.success(true)
             } catch (e: Exception) {
                 Log.e("AuthService", "Erreur lors de l'inscription", e)
+                Result.failure(e)
+            }
+        }
+    }
+
+    // Ajoutez cette méthode à votre classe AuthService
+    suspend fun loginWithGoogle(idToken: String): Result<String> {
+        return withContext(Dispatchers.IO) {
+            try {
+                Log.d("AuthService", "Envoi du token Google à l'API...")
+
+                val tokenResponse = apiService.loginWithGoogle(GoogleTokenRequest(idToken))
+                val backendToken = tokenResponse.token
+
+                Log.d("AuthService", "Token reçu du backend avec succès")
+
+                // Sauvegarder le token du backend (pas le token Google)
+                userPreferences.saveAuthToken(backendToken)
+
+                Result.success(backendToken)
+            } catch (e: Exception) {
+                Log.e("AuthService", "Erreur lors de l'envoi du token Google au backend", e)
                 Result.failure(e)
             }
         }
