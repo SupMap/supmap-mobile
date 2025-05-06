@@ -7,9 +7,9 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 
-// DTO envoyés et reçus par Retrofit
+
 data class IncidentDto(
-    val id: Long, // Assurez-vous que l'id est présent
+    val id: Long,
     val typeId: Long,
     val typeName: String,
     val latitude: Double,
@@ -23,9 +23,6 @@ data class IncidentRequest(
     val longitude: Double
 )
 
-/**
- * Retrofit Service pour les incidents
- */
 interface IncidentApiService {
     @POST("incidents")
     suspend fun createIncident(@Body request: IncidentRequest): Response<String>
@@ -36,12 +33,6 @@ interface IncidentApiService {
     @GET("user/incidents")
     suspend fun getUserIncidents(): List<IncidentDto>
 
-    /**
-     * Méthode pour noter un incident (confirmer ou infirmer sa présence)
-     * @param id L'identifiant de l'incident
-     * @param positive true pour confirmer, false pour infirmer
-     * @return Une réponse HTTP sans corps
-     */
     @GET("incident/{id}/rate")
     suspend fun rateIncident(
         @Path("id") id: Long,

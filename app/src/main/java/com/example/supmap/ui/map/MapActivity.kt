@@ -44,15 +44,9 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Locale
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
-import android.view.Gravity
-import android.view.Window
-import android.view.WindowManager
 import androidx.annotation.DrawableRes
 import androidx.core.content.ContextCompat
 import com.example.supmap.data.api.IncidentDto
@@ -60,13 +54,10 @@ import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.MapStyleOptions
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import java.util.Date
 import java.util.Timer
 import java.util.TimerTask
 import android.widget.PopupWindow
-import android.view.ViewGroup
-
 
 class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -111,7 +102,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            // La permission est accordée, la carte et le ViewModel vont s'actualiser
             if (::googleMap.isInitialized) {
                 enableMyLocation()
             }
@@ -126,12 +116,10 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Initialiser Places SDK si ce n'est pas déjà fait
         if (!Places.isInitialized()) {
             Places.initialize(applicationContext, getString(R.string.google_maps_key))
         }
 
-        // Vérifier si l'utilisateur est connecté
         val sharedPreferences = getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
         val token = sharedPreferences.getString("auth_token", "")
         permissionHandler = PermissionHandler(this, requestPermissionLauncher)
@@ -225,7 +213,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-    // Fonction setupViews() optimisée
     private fun setupViews() {
         // Initialiser les références UI générales
         accountButton = findViewById(R.id.accountButton)
@@ -251,14 +238,8 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         nextInstructionContainer.visibility = View.GONE
         clearRouteButton.hide()
         startNavigationModeButton.visibility = View.GONE
-
-        // Configurer le RecyclerView
         routeOptionsRecyclerView.layoutManager = LinearLayoutManager(this)
-
-        // Initialiser le PlacesClient
         val placesClient = Places.createClient(this)
-
-        // Initialiser et configurer le gestionnaire d'autocomplétion
         autocompleteManager = PlaceAutocompleteManager(
             context = this,
             placesClient = placesClient,
@@ -271,7 +252,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         // Configurer l'autocomplétion
         autocompleteManager.setupAutoComplete(destinationField)
 
-        // Configurer les listeners
         accountButton.setOnClickListener {
             showUserAccountDialog()
         }
@@ -294,7 +274,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         bicyclingModeButton.setOnClickListener { viewModel.setTravelMode("bicycling") }
         walkingModeButton.setOnClickListener { viewModel.setTravelMode("walking") }
 
-        // Si vous préférez garder le bouton pour lancer la recherche
         startNavigationButton.setOnClickListener {
             if (selectedDestination.isNotEmpty()) {
                 viewModel.calculateRoute(selectedDestination)
@@ -314,9 +293,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun observeViewModel() {
         lifecycleScope.launch {
             viewModel.uiState.collectLatest { state ->
-                // Gérer l'affichage ou le nettoyage de l'itinéraire
                 if (state.hasRoute && state.routePoints.isNotEmpty()) {
-                    // Dessiner l'itinéraire sélectionné
                     drawRoute(
                         state.routePoints,
                         state.startPoint,
@@ -325,12 +302,10 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                     )
                     clearRouteButton.show()
 
-                    // Si un itinéraire est affiché, rendre le bouton de navigation visible
                     if (!state.isNavigationMode) {
                         startNavigationModeButton.visibility = View.VISIBLE
                     }
                 } else {
-                    // Aucun itinéraire à afficher
                     if (::googleMap.isInitialized) {
                         googleMap.clear()
                         displayIncidentsOnMap()
@@ -339,12 +314,10 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                     startNavigationModeButton.visibility = View.GONE
                 }
 
-                // Gestion des messages d'erreur
                 state.errorMessage?.let {
                     Toast.makeText(this@MapActivity, it, Toast.LENGTH_SHORT).show()
                 }
 
-                // Mise à jour du mode de navigation
                 if (state.isNavigationMode) {
                     setupNavigationMode()
                 } else {
@@ -352,12 +325,9 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
 
                 updateFabVisibility(state.isNavigationMode)
-                // AJOUT DE LA LIGNE updateTravelModeUI
                 updateTravelModeUI(state.travelMode)
 
-                // Gestion des itinéraires multiples
                 if (state.availableRoutes.isNotEmpty()) {
-                    // Les itinéraires sont disponibles, configurez l'adaptateur
                     if (!::routeOptionsAdapter.isInitialized) {
                         routeOptionsAdapter = RouteOptionsAdapter(
                             state.availableRoutes,
@@ -373,17 +343,10 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                         )
                     }
 
-                    // Afficher la RecyclerView
                     routeOptionsRecyclerView.visibility = View.VISIBLE
-
-                    // Cacher le bouton "Voir les trajets" puisque nous les montrons déjà
                     startNavigationButton.visibility = View.GONE
                 } else {
-                    // Pas d'itinéraires disponibles, masquer la RecyclerView
                     routeOptionsRecyclerView.visibility = View.GONE
-
-                    // APPROCHE SIMPLIFIÉE: Montrer le bouton par défaut, sauf pendant le chargement
-                    // ou quand on est en mode navigation
                     if (state.isLoading || state.isNavigationMode || state.hasRoute) {
                         startNavigationButton.visibility = View.GONE
                     } else {
@@ -392,12 +355,9 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
             }
         }
-
-        // Observer la position actuelle
         lifecycleScope.launch {
             viewModel.currentLocation.collectLatest { location ->
                 location?.let {
-                    // ajoute la vérification sur hasRoute :
                     if (viewModel.uiState.value.isFollowingUser
                         && !viewModel.uiState.value.isNavigationMode
                         && !viewModel.uiState.value.hasRoute
@@ -407,8 +367,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                 }
             }
         }
-
-        // Observer le bearing en mode navigation
         lifecycleScope.launch {
             viewModel.currentBearing.collectLatest { bearing ->
                 if (viewModel.uiState.value.isNavigationMode) {
@@ -419,9 +377,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         lifecycleScope.launch {
             viewModel.currentNavigation.collectLatest { navState ->
                 if (navState != null) {
-                    // Mise à jour de l'instruction principale et de la distance
                     navigationInstructionText.text = navState.currentInstruction
-
                     val formattedDistance = if (navState.distanceToNext >= 1000) {
                         String.format("%.1f km", navState.distanceToNext / 1000)
                     } else {
@@ -429,7 +385,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                     }
                     navigationDistanceText.text = formattedDistance
 
-                    // Gestion de la prochaine instruction
                     if (navState.nextInstruction != null) {
                         nextInstructionContainer.visibility = View.VISIBLE
                         nextInstructionText.text = "Ensuite : ${navState.nextInstruction}"
@@ -437,7 +392,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                         nextInstructionContainer.visibility = View.GONE
                     }
 
-                    // Si destination atteinte
                     if (navState.isDestinationReached) {
                         Toast.makeText(this@MapActivity, "Destination atteinte!", Toast.LENGTH_LONG)
                             .show()
@@ -448,25 +402,20 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun updateTravelModeUI(mode: String) {
-        // Définir la couleur bleu et la couleur blanche
         val blueColor = ColorStateList.valueOf(resources.getColor(R.color.bleu, theme))
         val whiteColor = ColorStateList.valueOf(resources.getColor(android.R.color.white, theme))
 
-        // Réinitialiser tous les boutons à blanc
         drivingModeButton.backgroundTintList = whiteColor
         bicyclingModeButton.backgroundTintList = whiteColor
         walkingModeButton.backgroundTintList = whiteColor
 
-        // Définir les icônes par défaut
         drivingModeButton.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_car, 0, 0)
         bicyclingModeButton.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_bike, 0, 0)
         walkingModeButton.setCompoundDrawablesWithIntrinsicBounds(0, R.drawable.ic_walk, 0, 0)
 
-        // Mise à jour de l'apparence en fonction du mode sélectionné
         when (mode) {
             "driving" -> {
                 drivingModeButton.backgroundTintList = blueColor
-                // Utiliser la version blanche de l'icône
                 drivingModeButton.setCompoundDrawablesWithIntrinsicBounds(
                     0,
                     R.drawable.ic_car_white,
@@ -478,7 +427,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
             "bicycling" -> {
                 bicyclingModeButton.backgroundTintList = blueColor
-                // Utiliser la version blanche de l'icône
                 bicyclingModeButton.setCompoundDrawablesWithIntrinsicBounds(
                     0,
                     R.drawable.ic_bike_white,
@@ -490,7 +438,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
             "walking" -> {
                 walkingModeButton.backgroundTintList = blueColor
-                // Utiliser la version blanche de l'icône
                 walkingModeButton.setCompoundDrawablesWithIntrinsicBounds(
                     0,
                     R.drawable.ic_walk_white,
@@ -505,7 +452,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun setupNavigationMode() {
 
         // Masquer les éléments du mode normal
-        //googleMap.isBuildingsEnabled = false
         routePlannerContainer.visibility = View.GONE
         accountButton.visibility = View.GONE
         startNavigationModeButton.visibility = View.GONE
@@ -514,8 +460,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         // Afficher les éléments du mode navigation
         navigationModeContainer.visibility = View.VISIBLE
         bottomNavigationCard.visibility = View.VISIBLE
-
-
+        
         // Récupérer le temps de parcours de l'itinéraire sélectionné
         val selectedRouteIndex = viewModel.uiState.value.selectedRouteIndex
         val selectedRoute = viewModel.uiState.value.availableRoutes.getOrNull(selectedRouteIndex)
