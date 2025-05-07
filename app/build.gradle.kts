@@ -14,7 +14,6 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -40,6 +39,7 @@ android {
     }
 }
 
+
 dependencies {
     // AndroidX and Jetpack Compose dependencies
     implementation(libs.androidx.core.ktx)
@@ -51,29 +51,18 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
 
-// Firebase Auth
     implementation("com.google.firebase:firebase-auth-ktx:22.3.0")
-// Google Sign-In
     implementation("com.google.android.gms:play-services-auth:20.7.0")
-
     implementation("com.squareup.retrofit2:converter-scalars:2.9.0")
-
     implementation("com.google.android.libraries.places:places:3.3.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
-
     implementation("com.google.android.gms:play-services-maps:18.1.0")
     implementation("com.google.maps.android:android-maps-utils:2.3.0")
     implementation("com.google.maps:google-maps-services:2.1.2")
     implementation("org.slf4j:slf4j-simple:1.7.32")
-
-    // OpenStreetMap OSMDroid
     implementation("org.osmdroid:osmdroid-android:6.1.14")
-
-    // For location permissions and services
     implementation("com.google.android.gms:play-services-location:21.0.1")
-
     implementation("androidx.core:core-splashscreen:1.0.0-beta01")
-
     implementation("com.google.android.material:material:1.9.0")
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")

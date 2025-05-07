@@ -46,6 +46,7 @@ import java.util.Locale
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.location.Geocoder
+import android.util.Log
 import android.widget.ImageView
 import androidx.annotation.DrawableRes
 import androidx.core.content.ContextCompat
@@ -508,7 +509,9 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
               }
             ]
             """
+                googleMap.setMapStyle(MapStyleOptions(navigationStyle))
             } catch (e: Exception) {
+                Log.e("MapActivity", "echec de l application du style", e)
             }
 
             googleMap.uiSettings.apply {
@@ -947,7 +950,16 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onDestroy() {
         super.onDestroy()
         timer?.cancel()
-        incidentRatingTimeoutJob?.cancel()
+        timer = null
         incidentRatingDialog?.dismiss()
+        incidentRatingDialog = null
+        incidentRatingPopup?.dismiss()
+        incidentRatingPopup = null
+        incidentRatingTimeoutJob?.cancel()
+        if (::googleMap.isInitialized) {
+            googleMap.setOnMapClickListener(null)
+            googleMap.setOnMarkerClickListener(null)
+            googleMap.setOnCameraIdleListener(null)
+        }
     }
 }
