@@ -4,7 +4,6 @@ import android.app.Dialog
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.os.Bundle
-import android.util.Log
 import android.view.View
 import android.widget.AutoCompleteTextView
 import android.widget.Button
@@ -65,13 +64,8 @@ import com.example.supmap.utils.NavigationIconUtils
 
 class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
-    // ViewModel pour la gestion des données et de la logique
     private val viewModel: MapViewModel by viewModels { MapViewModel.Factory(applicationContext) }
-
-    // Google Map
     private lateinit var googleMap: GoogleMap
-
-    // UI Elements
     private lateinit var clearRouteButton: FloatingActionButton
     private lateinit var startNavigationButton: Button
     private lateinit var accountButton: FloatingActionButton
@@ -99,8 +93,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var remainingDistanceText: TextView
     private var incidentRatingPopup: PopupWindow? = null
     private lateinit var userPreferences: UserPreferences
-
-    // Ajoutez ces propriétés à la classe MapActivity
     private var incidentRatingDialog: Dialog? = null
     private var incidentRatingTimeoutJob: Job? = null
     private val requestPermissionLauncher = registerForActivityResult(
@@ -196,7 +188,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         sheet.show()
     }
 
-
     private fun checkAndRequestLocationPermission() {
         if (!permissionHandler.checkLocationPermission()) {
             permissionHandler.requestLocationPermission()
@@ -217,7 +208,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun setupViews() {
-        // Initialiser les références UI générales
         accountButton = findViewById(R.id.accountButton)
         clearRouteButton = findViewById(R.id.clearRouteButton)
         startNavigationButton = findViewById(R.id.startNavigationButton)
@@ -229,15 +219,11 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         exitNavigationButton = findViewById(R.id.exitNavigationButton)
         routePlannerContainer = findViewById(R.id.routePlannerContainer)
         routeOptionsRecyclerView = findViewById(R.id.routeOptionsRecyclerView)
-
-        // Initialiser les vues du mode navigation
         navigationModeContainer = findViewById(R.id.navigationModeContainer)
         navigationInstructionText = findViewById(R.id.navigationInstructionText)
         navigationDistanceText = findViewById(R.id.navigationDistanceText)
         nextInstructionContainer = findViewById(R.id.nextInstructionContainer)
         nextInstructionText = findViewById(R.id.nextInstructionText)
-
-        // Configuration initiale des vues
         nextInstructionContainer.visibility = View.GONE
         clearRouteButton.hide()
         startNavigationModeButton.visibility = View.GONE
@@ -251,8 +237,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                 selectedDestination = placeName
             }
         )
-
-        // Configurer l'autocomplétion
         autocompleteManager.setupAutoComplete(destinationField)
 
         accountButton.setOnClickListener {
@@ -380,7 +364,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         lifecycleScope.launch {
             viewModel.currentNavigation.collectLatest { navState ->
                 if (navState != null) {
-                    // Mise à jour de l'instruction principale et de la distance
                     navigationInstructionText.text = navState.currentInstruction
 
                     val formattedDistance = if (navState.distanceToNext >= 1000) {
@@ -390,17 +373,14 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                     }
                     navigationDistanceText.text = formattedDistance
 
-                    // Mise à jour de l'icône de direction - AJOUTEZ CE CODE
                     val directionIconView = findViewById<ImageView>(R.id.directionIconView)
                     val iconResource = NavigationIconUtils.getNavigationIconResource(navState.sign)
                     directionIconView.setImageResource(iconResource)
 
-                    // Gestion de la prochaine instruction
                     if (navState.nextInstruction != null) {
                         nextInstructionContainer.visibility = View.VISIBLE
                         nextInstructionText.text = "Ensuite : ${navState.nextInstruction}"
 
-                        // Accédez à l'ImageView par son ID
                         val nextDirectionIconView =
                             findViewById<ImageView>(R.id.nextDirectionIconView)
                         val nextIconResource =
@@ -409,8 +389,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                     } else {
                         nextInstructionContainer.visibility = View.GONE
                     }
-
-                    // Si destination atteinte
                     if (navState.isDestinationReached) {
                         Toast.makeText(this@MapActivity, "Destination atteinte!", Toast.LENGTH_LONG)
                             .show()
@@ -470,24 +448,20 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun setupNavigationMode() {
 
-        // Masquer les éléments du mode normal
         routePlannerContainer.visibility = View.GONE
         accountButton.visibility = View.GONE
         startNavigationModeButton.visibility = View.GONE
         clearRouteButton.hide()
 
-        // Afficher les éléments du mode navigation
         navigationModeContainer.visibility = View.VISIBLE
         bottomNavigationCard.visibility = View.VISIBLE
 
-        // Récupérer le temps de parcours de l'itinéraire sélectionné
         val selectedRouteIndex = viewModel.uiState.value.selectedRouteIndex
         val selectedRoute = viewModel.uiState.value.availableRoutes.getOrNull(selectedRouteIndex)
 
         if (selectedRoute != null) {
-            updateEtaDynamically() // Centralise le calcul ETA !
+            updateEtaDynamically()
 
-            // Afficher le temps et la distance restants
             val etaMillis = selectedRoute.path.time
             val remainingTimeMinutes = (etaMillis / 60000).toInt()
             remainingTimeText.text =
@@ -502,9 +476,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
             startEtaTimer()
         }
 
-        // Configurer la carte pour le mode navigation
         if (::googleMap.isInitialized) {
-            // Appliquer un style simplifié à la carte pour le mode navigation
             try {
                 val navigationStyle = """
             [
@@ -536,19 +508,9 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
               }
             ]
             """
-                val success = googleMap.setMapStyle(MapStyleOptions(navigationStyle))
-                if (!success) {
-                    Log.e("MapActivity", "Style parsing failed")
-                }
             } catch (e: Exception) {
-                Log.e(
-                    "MapActivity",
-                    "Impossible d'appliquer le style de navigation: ${e.message}",
-                    e
-                )
             }
 
-            // Configuration des paramètres UI de la carte
             googleMap.uiSettings.apply {
                 isScrollGesturesEnabled = false
                 isZoomGesturesEnabled = false
@@ -557,7 +519,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                 isMyLocationButtonEnabled = false
             }
 
-            // Essayer de récupérer tout de suite la dernière position connue
             viewModel.currentLocation.value?.let { loc ->
                 val bearing = viewModel.currentBearing.value
                 val cam = CameraPosition.Builder()
@@ -573,10 +534,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun setupNormalMode() {
         stopEtaTimer()
-        // Masquer les éléments du mode navigation
         navigationModeContainer.visibility = View.GONE
-
-        // Afficher les éléments du mode normal
         routePlannerContainer.visibility = View.VISIBLE
         accountButton.visibility = View.VISIBLE
         bottomNavigationCard.visibility = View.GONE
@@ -587,7 +545,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
             startNavigationModeButton.visibility = View.VISIBLE
         }
 
-        // Configurer la carte pour le mode normal
         if (::googleMap.isInitialized) {
             googleMap.setMapStyle(null)
             googleMap.uiSettings.apply {
@@ -598,7 +555,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                 isMyLocationButtonEnabled = true
             }
 
-            // Réinitialiser la caméra
             viewModel.currentLocation.value?.let { location ->
                 val cameraPosition = CameraPosition.Builder()
                     .target(LatLng(location.latitude, location.longitude))
@@ -644,36 +600,25 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-
     private fun drawRoute(
         points: List<LatLng>,
         startPoint: LatLng?,
         endPoint: LatLng?,
         isRecalculation: Boolean
     ) {
-        Log.d(
-            "MapActivity",
-            "Drawing route - Points: ${points.size}, isRecalculation: $isRecalculation"
-        )
-
         if (!::googleMap.isInitialized || startPoint == null || endPoint == null || points.isEmpty()) {
-            Log.e("MapActivity", "Cannot draw route: missing parameters")
             return
         }
 
         try {
-            // Effacer la carte actuelle
             googleMap.clear()
             displayIncidentsOnMap()
 
-            // Ajouter les marqueurs
             googleMap.addMarker(MarkerOptions().position(startPoint).title("Départ"))
             googleMap.addMarker(MarkerOptions().position(endPoint).title("Destination"))
 
-            // Dessiner la polyline avec une largeur adaptée au mode
             val lineWidth = if (viewModel.uiState.value.isNavigationMode) 18f else 12f
 
-            // Dessiner la polyline
             val polylineOptions = PolylineOptions()
                 .addAll(points)
                 .width(lineWidth)
@@ -682,15 +627,11 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
             googleMap.addPolyline(polylineOptions)
 
-            // Ajuster la caméra seulement si ce n'est PAS un recalcul
             if (!isRecalculation) {
-                Log.d("MapActivity", "NEW ROUTE - Will adjust camera to show full route")
                 lifecycleScope.launch {
-                    // Construction du bounds comme déjà en place
                     val builder = LatLngBounds.Builder()
                     builder.include(startPoint)
                     builder.include(endPoint)
-
                     val step = kotlin.math.max(1, points.size / 20)
                     for (i in points.indices step step) {
                         builder.include(points[i])
@@ -705,20 +646,15 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                                 padding
                             )
                         )
-                        Log.d("MapActivity", "Camera adjustment successful!")
                     } catch (e: Exception) {
-                        Log.e("MapActivity", "Error adjusting camera: ${e.message}", e)
-                        // Solution de secours (si bounds fail)
                         googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(startPoint, 12f))
                     }
                 }
             } else {
-                Log.d("MapActivity", "RECALCULATION - Not adjusting camera")
                 Toast.makeText(this, "Recalcul de l’itinéraire en cours…", Toast.LENGTH_SHORT)
                     .show()
             }
         } catch (e: Exception) {
-            Log.e("MapActivity", "Error drawing route: ${e.message}", e)
         }
     }
 
@@ -733,17 +669,14 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
             .setView(dialogView)
             .create()
 
-        // Références aux TextView
         val userNameText = dialogView.findViewById<TextView>(R.id.userNameText)
         val userUsernameText = dialogView.findViewById<TextView>(R.id.userUsernameText)
         val userEmailText = dialogView.findViewById<TextView>(R.id.userEmailText)
 
-        // Par défaut, mettre un texte de chargement
         userNameText.text = "Chargement..."
         userUsernameText.text = "Chargement..."
         userEmailText.text = "Chargement..."
 
-        // Configurer le bouton de déconnexion
         dialogView.findViewById<Button>(R.id.logoutButtonDialog).setOnClickListener {
             userPreferences.clearAuthToken()
             Toast.makeText(this, "Déconnexion réussie", Toast.LENGTH_SHORT).show()
@@ -756,7 +689,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
             retrieveAndDisplayUserRoute()
         }
 
-        // Afficher le dialogue
         dialog.show()
         val token = userPreferences.authToken.value
         if (token != null) {
@@ -791,44 +723,26 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
         lifecycleScope.launch {
             try {
-                // Utiliser le repository existant au lieu de créer un nouveau service
                 val directionsRepository = DirectionsRepository(this@MapActivity)
-
-                // Récupérer position actuelle
                 val currentLocation = viewModel.currentLocation.value
                 val origin = currentLocation?.let {
                     "${it.latitude},${it.longitude}"
                 }
-
-                Log.d(
-                    "MapActivity",
-                    "Appel au repository pour récupérer le trajet (origin=$origin)"
-                )
                 val routeResult = directionsRepository.getUserRoute(origin)
-
                 if (routeResult != null) {
                     val (response, _) = routeResult
-
-                    // Vérifier l'itinéraire
                     val path = response.fastest?.paths?.firstOrNull()
-
                     if (path != null) {
-                        // Traitement des données d'itinéraire
                         val points = directionsRepository.decodePoly(path.points)
-
                         if (points.isNotEmpty()) {
-                            // Extraire les points de départ et d'arrivée
                             val startPoint = points.first()
                             val endPoint = points.last()
-
-                            // Géocoder l'adresse de destination pour l'affichage
                             val geocoder = Geocoder(this@MapActivity, Locale.getDefault())
                             val addresses =
                                 geocoder.getFromLocation(endPoint.latitude, endPoint.longitude, 1)
                             val destinationAddress =
                                 addresses?.firstOrNull()?.getAddressLine(0) ?: "Destination"
 
-                            // Définir le nouvel itinéraire dans le ViewModel
                             viewModel.setRecoveredRoute(
                                 points = points,
                                 startPoint = startPoint,
@@ -843,7 +757,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                                 Toast.LENGTH_SHORT
                             ).show()
                         } else {
-                            Log.e("MapActivity", "Liste de points vide après décodage")
                             Toast.makeText(
                                 this@MapActivity,
                                 "Données d'itinéraire invalides",
@@ -851,7 +764,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                             ).show()
                         }
                     } else {
-                        Log.e("MapActivity", "Pas de trajet dans la réponse: $response")
                         Toast.makeText(
                             this@MapActivity,
                             "Aucun trajet actif trouvé",
@@ -859,7 +771,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                         ).show()
                     }
                 } else {
-                    Log.e("MapActivity", "Récupération du trajet échouée (résultat null)")
                     Toast.makeText(
                         this@MapActivity,
                         "Échec de récupération du trajet",
@@ -867,7 +778,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                     ).show()
                 }
             } catch (e: Exception) {
-                Log.e("MapActivity", "Erreur récupération trajet: ${e.message}", e)
                 e.printStackTrace()
                 Toast.makeText(
                     this@MapActivity,
@@ -882,7 +792,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         googleMap = map
         enableMyLocation()
 
-        // Configurer les paramètres de la carte
         if (ActivityCompat.checkSelfPermission(
                 this,
                 android.Manifest.permission.ACCESS_FINE_LOCATION
@@ -891,21 +800,18 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
             googleMap.isMyLocationEnabled = true
         }
 
-        // Initialiser l'état de l'UI selon le ViewModel
         updateUIFromViewModel()
         viewModel.loadIncidents()
 
-        // 2) observe le flux d’incidents
         lifecycleScope.launchWhenStarted {
             viewModel.incidents.collect { list ->
                 displayIncidentsOnMap()
                 list.forEach { dto ->
                     val pos = LatLng(dto.latitude, dto.longitude)
-                    // trouve l’icône correspondante
                     val iconRes = IncidentTypeProvider.allTypes
                         .find { it.id == dto.id }
                         ?.iconRes
-                        ?: R.drawable.ic_incident_report // fallback
+                        ?: R.drawable.ic_incident_report
 
                     googleMap.addMarker(
                         MarkerOptions()
@@ -920,24 +826,18 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun updateUIFromViewModel() {
         val state = viewModel.uiState.value
-
-        // Mettre à jour le mode de transport
         updateTravelModeUI(state.travelMode)
-
-        // Gérer l'affichage de l'itinéraire
         if (state.hasRoute && state.routePoints.isNotEmpty()) {
             drawRoute(
                 state.routePoints,
                 state.startPoint,
                 state.endPoint,
-                isRecalculation = false  // Ajout du paramètre manquant
+                isRecalculation = false
             )
             startNavigationButton.visibility = View.GONE
             clearRouteButton.show()
             startNavigationModeButton.visibility = View.VISIBLE
         }
-
-        // Gérer le mode navigation
         if (state.isNavigationMode) {
             setupNavigationMode()
         }
@@ -947,7 +847,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         lifecycleScope.launchWhenStarted {
             viewModel.incidentStatus.collect { success ->
                 val msg = if (success) {
-                    // 1) On recharge les incidents existants
                     viewModel.loadIncidents()
                     "Incident envoyé 👍"
                 } else {
@@ -964,13 +863,8 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         )
 
         if (selectedRoute != null) {
-            // Récupérer la distance restante
             val remainingDistance = viewModel.getRemainingDistance()
-
-            // Récupérer la vitesse actuelle (en m/s)
             val currentSpeed = viewModel.currentLocation.value?.speed ?: 0f
-
-            // Calculer le temps restant
             val remainingTimeSeconds = if (currentSpeed > 0.5f) {
                 (remainingDistance / currentSpeed).toInt()
             } else {
@@ -978,12 +872,10 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                 (selectedRoute.path.time * (1 - progressPercent) / 1000).toInt()
             }
 
-            // Calculer l'heure d'arrivée
             val arrivalTime = System.currentTimeMillis() + (remainingTimeSeconds * 1000)
             val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
             currentTimeText.text = "Arrivée à ${timeFormat.format(Date(arrivalTime))}"
 
-            // Mettre à jour le temps et la distance restants
             val remainingMins = remainingTimeSeconds / 60
             remainingTimeText.text = if (remainingMins < 1) {
                 "< 1 min"
@@ -991,7 +883,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                 "$remainingMins min"
             }
 
-            // Formater la distance
             remainingDistanceText.text = if (remainingDistance >= 1000) {
                 String.format("%.1f km", remainingDistance / 1000)
             } else {
@@ -1001,10 +892,8 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun observeNearbyIncidentsForRating() {
-        Log.d("MapActivity", "Démarrage observation incidents pour notation")
         lifecycleScope.launch {
             viewModel.incidentToRate.collect { incident ->
-                Log.d("MapActivity", "Changement incident à noter: $incident")
                 if (incident != null) {
                     showIncidentRatingDialog(incident)
                 } else {
@@ -1015,7 +904,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun showIncidentRatingDialog(incident: IncidentDto) {
-        // Créer et afficher le fragment de dialogue
         val dialogFragment =
             IncidentRatingDialogFragment.newInstance(incident) { incidentId, isPositive ->
                 viewModel.rateIncident(incidentId, isPositive)
@@ -1025,7 +913,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                     Toast.LENGTH_SHORT
                 ).show()
             }
-
         dialogFragment.show(supportFragmentManager, "incident_rating")
     }
 
@@ -1044,15 +931,13 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                     updateEtaDynamically()
                 }
             }
-        }, 0, 5000) // Toutes les 5 secondes au lieu de 15
+        }, 0, 5000)
     }
 
     private fun stopEtaTimer() {
         timer?.cancel()
     }
 
-
-    // Dans ton flow d’état, active ou désactive la visibilité du FAB
     private fun updateFabVisibility(isNavMode: Boolean) {
         reportIncidentFab.isVisible = isNavMode
     }
@@ -1062,7 +947,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onDestroy() {
         super.onDestroy()
         timer?.cancel()
-        incidentRatingTimeoutJob?.cancel() // Ajoutez cette ligne
-        incidentRatingDialog?.dismiss()     // Ajoutez cette ligne
+        incidentRatingTimeoutJob?.cancel()
+        incidentRatingDialog?.dismiss()
     }
 }
