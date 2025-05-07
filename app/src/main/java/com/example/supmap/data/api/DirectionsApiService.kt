@@ -13,6 +13,9 @@ interface DirectionsApiService {
         @Query("mode") mode: String,
         @Header("Authorization") token: String
     ): Response<DirectionsResponse>
+
+    @GET("user/route")
+    suspend fun getUserRoute(@Query("origin") origin: String? = null): Response<DirectionsResponse>
 }
 
 object DirectionsApiClient {

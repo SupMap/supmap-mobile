@@ -29,7 +29,7 @@
         android:layout_height="wrap_content"
         android:text="Nom : ..."
         android:textSize="16sp"
-        android:layout_marginBottom="8dp"/>
+        android:layout_marginBottom="8dp" />
 
     <TextView
         android:id="@+id/userUsernameText"
@@ -37,7 +37,7 @@
         android:layout_height="wrap_content"
         android:text="Pseudonyme: ..."
         android:textSize="16sp"
-        android:layout_marginBottom="8dp"/>
+        android:layout_marginBottom="8dp" />
 
     <TextView
         android:id="@+id/userEmailText"
@@ -45,7 +45,7 @@
         android:layout_height="wrap_content"
         android:text="Email: ..."
         android:textSize="16sp"
-        android:layout_marginBottom="16dp"/>
+        android:layout_marginBottom="16dp" />
 
     <Button
         android:id="@+id/logoutButtonDialog"
@@ -53,6 +53,15 @@
         android:layout_height="wrap_content"
         android:text="Déconnexion"
         android:backgroundTint="@color/orange"
-        android:textColor="@android:color/white"/>
+        android:textColor="@android:color/white" />
+
+    <Button
+        android:id="@+id/retrieveRouteButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Récupérer trajet"
+        android:backgroundTint="@color/bleu"
+        android:textColor="@android:color/white"
+        android:layout_marginTop="8dp" />
 
 </LinearLayout>

@@ -47,6 +47,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.location.Geocoder
 import android.widget.ImageView
 import androidx.annotation.DrawableRes
 import androidx.core.content.ContextCompat
@@ -59,6 +60,8 @@ import java.util.Date
 import java.util.Timer
 import java.util.TimerTask
 import android.widget.PopupWindow
+import com.example.supmap.data.api.NetworkModule
+import com.example.supmap.data.repository.DirectionsRepository
 import com.example.supmap.utils.NavigationIconUtils
 
 class MapActivity : AppCompatActivity(), OnMapReadyCallback {
@@ -751,6 +754,10 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
             startActivity(Intent(this, MainActivity::class.java))
             finish()
         }
+        dialogView.findViewById<Button>(R.id.retrieveRouteButton).setOnClickListener {
+            dialog.dismiss()
+            retrieveAndDisplayUserRoute()
+        }
 
         // Afficher le dialogue
         dialog.show()
@@ -780,6 +787,98 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                     userUsernameText.text = e.message
                     userEmailText.text = ""
                 }
+            }
+        }
+    }
+
+    private fun retrieveAndDisplayUserRoute() {
+        Toast.makeText(this, "Récupération du trajet en cours...", Toast.LENGTH_SHORT).show()
+
+        lifecycleScope.launch {
+            try {
+                // Utiliser le repository existant au lieu de créer un nouveau service
+                val directionsRepository = DirectionsRepository(this@MapActivity)
+
+                // Récupérer position actuelle
+                val currentLocation = viewModel.currentLocation.value
+                val origin = currentLocation?.let {
+                    "${it.latitude},${it.longitude}"
+                }
+
+                Log.d(
+                    "MapActivity",
+                    "Appel au repository pour récupérer le trajet (origin=$origin)"
+                )
+                val routeResult = directionsRepository.getUserRoute(origin)
+
+                if (routeResult != null) {
+                    val (response, _) = routeResult
+
+                    // Vérifier l'itinéraire
+                    val path = response.fastest?.paths?.firstOrNull()
+
+                    if (path != null) {
+                        // Traitement des données d'itinéraire
+                        val points = directionsRepository.decodePoly(path.points)
+
+                        if (points.isNotEmpty()) {
+                            // Extraire les points de départ et d'arrivée
+                            val startPoint = points.first()
+                            val endPoint = points.last()
+
+                            // Géocoder l'adresse de destination pour l'affichage
+                            val geocoder = Geocoder(this@MapActivity, Locale.getDefault())
+                            val addresses =
+                                geocoder.getFromLocation(endPoint.latitude, endPoint.longitude, 1)
+                            val destinationAddress =
+                                addresses?.firstOrNull()?.getAddressLine(0) ?: "Destination"
+
+                            // Définir le nouvel itinéraire dans le ViewModel
+                            viewModel.setRecoveredRoute(
+                                points = points,
+                                startPoint = startPoint,
+                                endPoint = endPoint,
+                                destination = destinationAddress,
+                                path = path
+                            )
+
+                            Toast.makeText(
+                                this@MapActivity,
+                                "Trajet récupéré avec succès",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        } else {
+                            Log.e("MapActivity", "Liste de points vide après décodage")
+                            Toast.makeText(
+                                this@MapActivity,
+                                "Données d'itinéraire invalides",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    } else {
+                        Log.e("MapActivity", "Pas de trajet dans la réponse: $response")
+                        Toast.makeText(
+                            this@MapActivity,
+                            "Aucun trajet actif trouvé",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                } else {
+                    Log.e("MapActivity", "Récupération du trajet échouée (résultat null)")
+                    Toast.makeText(
+                        this@MapActivity,
+                        "Échec de récupération du trajet",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } catch (e: Exception) {
+                Log.e("MapActivity", "Erreur récupération trajet: ${e.message}", e)
+                e.printStackTrace()
+                Toast.makeText(
+                    this@MapActivity,
+                    "Erreur: ${e.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
     }

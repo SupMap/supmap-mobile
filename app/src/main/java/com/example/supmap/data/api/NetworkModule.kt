@@ -7,6 +7,8 @@ import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.scalars.ScalarsConverterFactory
 import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.http.GET
+import retrofit2.http.Query
 
 object NetworkModule {
     private lateinit var appContext: Context
@@ -62,4 +64,9 @@ object NetworkModule {
 
     /** Crée un service Retrofit typé */
     inline fun <reified T> createService(): T = retrofit.create(T::class.java)
+
+    interface UserRouteService {
+        @GET("user/route")
+        suspend fun getUserRoute(@Query("origin") origin: String? = null): DirectionsResponse
+    }
 }

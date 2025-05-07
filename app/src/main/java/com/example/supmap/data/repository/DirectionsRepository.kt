@@ -4,11 +4,13 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import com.example.supmap.data.api.DirectionsApiClient
+import com.example.supmap.data.api.DirectionsApiService
 import com.example.supmap.data.api.Instruction
 import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.example.supmap.data.api.DirectionsResponse
+import com.example.supmap.data.api.NetworkModule
 
 class DirectionsRepository(private val context: Context) {
 
@@ -16,6 +18,8 @@ class DirectionsRepository(private val context: Context) {
         context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
 
     private val TAG = "DirectionsRepo"
+
+    private val directionsService = NetworkModule.createService<DirectionsApiService>()
 
     /**
      * Récupère les directions entre deux points
@@ -112,6 +116,36 @@ class DirectionsRepository(private val context: Context) {
             "bicycling" -> "bike"
             "walking" -> "foot"
             else -> "car"
+        }
+    }
+
+
+    suspend fun getUserRoute(origin: String? = null): Pair<DirectionsResponse, String>? {
+        return withContext(Dispatchers.IO) {
+            try {
+                Log.d(
+                    "DirectionsRepo",
+                    "Tentative d'appel API GET user/route avec origine: $origin"
+                )
+                val response = directionsService.getUserRoute(origin)
+
+                if (response.isSuccessful) {
+                    Log.d("DirectionsRepo", "Réponse API réussie (${response.code()})")
+                    val directionsResponse = response.body()
+                    if (directionsResponse != null) {
+                        return@withContext Pair(directionsResponse, "")
+                    } else {
+                        Log.e("DirectionsRepo", "Corps de réponse vide")
+                    }
+                } else {
+                    Log.e("DirectionsRepo", "Échec API: ${response.code()} - ${response.message()}")
+                    Log.e("DirectionsRepo", "Corps d'erreur: ${response.errorBody()?.string()}")
+                }
+                null
+            } catch (e: Exception) {
+                Log.e("DirectionsRepo", "Exception lors de la récupération du trajet", e)
+                null
+            }
         }
     }
 

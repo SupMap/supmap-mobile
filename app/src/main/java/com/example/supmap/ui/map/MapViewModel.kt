@@ -503,6 +503,58 @@ class MapViewModel(
         }
     }
 
+
+    /**
+     * Définit un itinéraire récupéré depuis l'API
+     */
+    fun setRecoveredRoute(
+        points: List<LatLng>,
+        startPoint: LatLng,
+        endPoint: LatLng,
+        destination: String,
+        path: Path
+    ) {
+        viewModelScope.launch {
+            try {
+                // Créer les segments pour les instructions
+                val segments = createRouteSegments(points, path.instructions, endPoint)
+
+                // Créer une option d'itinéraire
+                val routeOption = RouteOption(
+                    "Itinéraire récupéré",
+                    "recovered",
+                    path,
+                    points,
+                    segments
+                )
+
+                // Mettre à jour l'état de l'UI
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        hasRoute = true,
+                        currentDestination = destination,
+                        routePoints = points,
+                        routeSegments = segments,
+                        startPoint = startPoint,
+                        endPoint = endPoint,
+                        availableRoutes = listOf(routeOption),
+                        selectedRouteIndex = 0,
+                        errorMessage = null,
+                        isFollowingUser = false
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "Erreur lors du traitement de l'itinéraire: ${e.message}"
+                    )
+                }
+            }
+        }
+    }
+
     /** Quitte le mode navigation */
     fun exitNavigationMode() {
         mapHandler.reset()
