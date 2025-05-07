@@ -35,7 +35,6 @@ fun LoginScreen(
 ) {
     val context = LocalContext.current
 
-    // États pour les connexions standard et Google
     val loginState = viewModel.loginState.collectAsState().value
     val googleSignInState = viewModel.googleSignInState.collectAsState().value
 
@@ -43,7 +42,6 @@ fun LoginScreen(
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
 
-    // Configuration Google Sign-In
     val gso = remember {
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(context.getString(R.string.default_web_client_id))
@@ -51,7 +49,6 @@ fun LoginScreen(
             .build()
     }
 
-    // Launcher pour Google Sign-In
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -67,7 +64,6 @@ fun LoginScreen(
         }
     }
 
-    // Gérer les changements d'état pour la connexion standard
     LaunchedEffect(loginState) {
         when (loginState) {
             is LoginState.Loading -> {
@@ -91,7 +87,6 @@ fun LoginScreen(
         }
     }
 
-    // Gérer les changements d'état pour Google Sign-In
     LaunchedEffect(googleSignInState) {
         when (googleSignInState) {
             is LoginState.Loading -> {
@@ -109,7 +104,7 @@ fun LoginScreen(
                 Toast.makeText(context, googleSignInState.message, Toast.LENGTH_LONG).show()
             }
 
-            else -> { /* Ne rien faire */
+            else -> {
             }
         }
     }
@@ -187,7 +182,6 @@ fun LoginScreen(
             )
         }
 
-        // Séparateur pour Google Sign-In
         Spacer(modifier = Modifier.height(16.dp))
 
         Row(
@@ -210,7 +204,6 @@ fun LoginScreen(
             )
         }
 
-        // Bouton Google avec style adapté à votre design
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedButton(

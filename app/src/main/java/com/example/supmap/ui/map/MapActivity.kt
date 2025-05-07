@@ -61,6 +61,7 @@ import java.util.Timer
 import java.util.TimerTask
 import android.widget.PopupWindow
 import com.example.supmap.data.api.NetworkModule
+import com.example.supmap.data.local.UserPreferences
 import com.example.supmap.data.repository.DirectionsRepository
 import com.example.supmap.utils.NavigationIconUtils
 
@@ -99,6 +100,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var remainingTimeText: TextView
     private lateinit var remainingDistanceText: TextView
     private var incidentRatingPopup: PopupWindow? = null
+    private lateinit var userPreferences: UserPreferences
 
     // Ajoutez ces propriétés à la classe MapActivity
     private var incidentRatingDialog: Dialog? = null
@@ -124,12 +126,10 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         if (!Places.isInitialized()) {
             Places.initialize(applicationContext, getString(R.string.google_maps_key))
         }
-
-        val sharedPreferences = getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
-        val token = sharedPreferences.getString("auth_token", "")
+        userPreferences = UserPreferences(this)
         permissionHandler = PermissionHandler(this, requestPermissionLauncher)
         checkAndRequestLocationPermission()
-        if (token.isNullOrEmpty()) {
+        if (!userPreferences.isLoggedIn()) {
             Toast.makeText(
                 this,
                 "Vous n'êtes pas connecté. Veuillez vous connecter.",
@@ -747,8 +747,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // Configurer le bouton de déconnexion
         dialogView.findViewById<Button>(R.id.logoutButtonDialog).setOnClickListener {
-            val sharedPreferences = getSharedPreferences("user_prefs", MODE_PRIVATE)
-            sharedPreferences.edit().remove("auth_token").apply()
+            userPreferences.clearAuthToken()
             Toast.makeText(this, "Déconnexion réussie", Toast.LENGTH_SHORT).show()
             dialog.dismiss()
             startActivity(Intent(this, MainActivity::class.java))
@@ -761,9 +760,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
         // Afficher le dialogue
         dialog.show()
-
-        // Récupérer les infos utilisateur
-        val token = getSharedPreferences("user_prefs", MODE_PRIVATE).getString("auth_token", null)
+        val token = userPreferences.authToken.value
         if (token != null) {
             lifecycleScope.launch {
                 try {

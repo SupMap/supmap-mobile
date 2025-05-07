@@ -24,7 +24,6 @@ class IncidentRatingDialogFragment : DialogFragment() {
     private var onRatingCallback: ((Long, Boolean) -> Unit)? = null
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        // Créer un Dialog transparent sans titre
         return Dialog(requireContext()).apply {
             requestWindowFeature(Window.FEATURE_NO_TITLE)
             window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
@@ -43,11 +42,9 @@ class IncidentRatingDialogFragment : DialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Configurer le texte de l'incident
         val incidentTypeText = view.findViewById<TextView>(R.id.incidentTypeText)
         incidentTypeText.text = incident?.typeName ?: "Incident"
 
-        // Configurer les boutons
         view.findViewById<View>(R.id.thumbsUpButton).setOnClickListener {
             incident?.id?.let { id -> onRatingCallback?.invoke(id, true) }
             dismiss()
@@ -58,7 +55,6 @@ class IncidentRatingDialogFragment : DialogFragment() {
             dismiss()
         }
 
-        // Fermeture automatique après 10 secondes
         lifecycleScope.launch {
             delay(10000)
             if (isAdded) dismiss()
@@ -70,26 +66,16 @@ class IncidentRatingDialogFragment : DialogFragment() {
 
         dialog?.window?.apply {
             clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-            // Définir la largeur à MATCH_PARENT
             setLayout(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-
-            // Calculer les marges depuis les valeurs de votre XML
             val params = attributes
-
-            // Marges horizontales de 16dp (comme dans votre XML)
             val horizontalMargin = (16 * resources.displayMetrics.density).toInt()
             params.width = resources.displayMetrics.widthPixels - (horizontalMargin * 2)
-
-            // Marge supérieure de 130dp (comme dans votre XML)
             val topMargin = (130 * resources.displayMetrics.density).toInt()
-
-            // Positionner en haut avec la marge
             setGravity(Gravity.TOP)
             params.y = topMargin
-
             attributes = params
         }
     }

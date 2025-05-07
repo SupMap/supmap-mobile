@@ -25,11 +25,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Initialiser le module réseau
         NetworkModule.initialize(applicationContext)
         authService = AuthService(applicationContext)
 
-        // Initialiser Places SDK avec la même clé API que Google Maps
         if (!Places.isInitialized()) {
             Places.initialize(applicationContext, getString(R.string.google_maps_key))
         }
@@ -37,7 +35,6 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val context = LocalContext.current
-            // Observez l'état d'authentification
             val authToken by authService.getAuthToken().collectAsState(initial = null)
             var currentScreen by remember { mutableStateOf(if (authToken != null) "map" else "login") }
 
@@ -49,9 +46,8 @@ class MainActivity : ComponentActivity() {
                     when (currentScreen) {
                         "login" -> LoginScreen(
                             onLogin = {
-                                // Le token est déjà sauvegardé dans AuthService lors de l'appel login()
                                 context.startActivity(Intent(context, MapActivity::class.java))
-                                finish() // Fermer MainActivity pour éviter le retour arrière
+                                finish()
                             },
                             onNavigateToRegister = { currentScreen = "register" }
                         )
@@ -67,7 +63,7 @@ class MainActivity : ComponentActivity() {
                             LaunchedEffect(key1 = authToken) {
                                 if (authToken != null) {
                                     context.startActivity(Intent(context, MapActivity::class.java))
-                                    finish() // Fermer MainActivity pour éviter le retour arrière
+                                    finish()
                                 }
                             }
                         }

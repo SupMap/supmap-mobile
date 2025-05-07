@@ -12,7 +12,6 @@ class IncidentRepository(private val context: Context) {
 
     private val service = IncidentApiClient.service
 
-    /** Crée un incident, ou renvoie null en cas d’erreur */
     suspend fun createIncident(request: IncidentRequest): Boolean =
         withContext(Dispatchers.IO) {
             val resp = service.createIncident(request)
@@ -22,13 +21,11 @@ class IncidentRepository(private val context: Context) {
             resp.isSuccessful
         }
 
-    /** Dans ta classe IncidentRepository */
     suspend fun fetchAllIncidents(): List<IncidentDto> =
         withContext(Dispatchers.IO) {
             IncidentApiClient.service.getAllIncidents()
         }
 
-    /** Note un incident (confirme ou infirme sa présence) */
     suspend fun rateIncident(incidentId: Long, isPositive: Boolean): Boolean =
         withContext(Dispatchers.IO) {
             try {
@@ -44,12 +41,5 @@ class IncidentRepository(private val context: Context) {
                 Log.e("IncidentRepo", "Exception lors de la notation de l'incident $incidentId", e)
                 false
             }
-        }
-
-
-    /** Récupère les incidents de l’utilisateur connecté */
-    suspend fun getUserIncidents(): List<IncidentDto> =
-        withContext(Dispatchers.IO) {
-            service.getUserIncidents()
         }
 }

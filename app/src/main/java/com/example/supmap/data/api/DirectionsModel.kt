@@ -11,17 +11,17 @@ data class GraphhopperResponse(
 )
 
 data class Path(
-    val distance: Double,         // Distance totale en mètres
-    val time: Long,               // Temps total en millisecondes
-    val points: String,           // Polyline encodée
+    val distance: Double,
+    val time: Long,
+    val points: String,
     val instructions: List<Instruction>?
 )
 
 data class Instruction(
-    val text: String,             // Instruction textuelle
-    val distance: Double,         // Distance pour cette instruction
-    val time: Long,               // Temps pour cette instruction
-    val sign: Int,                // Type de direction (-2=left, -1=slight left, 0=straight, etc.)
-    val point_index: Int,         // Index du point de référence dans la polyline
-    val street_name: String?      // Nom de la rue
+    val text: String,
+    val distance: Double,
+    val time: Long,
+    val sign: Int,
+    val point_index: Int,
+    val street_name: String?
 )

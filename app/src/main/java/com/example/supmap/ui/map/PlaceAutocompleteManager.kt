@@ -19,7 +19,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-// Data class déplacée au niveau du package
 data class PlaceAutocomplete(val placeId: String, val fullText: CharSequence)
 
 class PlaceAutocompleteManager(
@@ -33,11 +32,9 @@ class PlaceAutocompleteManager(
     private lateinit var placesAdapter: PlacesAdapter
 
     fun setupAutoComplete(destinationField: AutoCompleteTextView) {
-        // Configurer l'adaptateur
         placesAdapter = PlacesAdapter(context)
         destinationField.setAdapter(placesAdapter)
 
-        // Configurer le TextWatcher avec debouncing
         destinationField.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
 
@@ -55,18 +52,11 @@ class PlaceAutocompleteManager(
             override fun afterTextChanged(s: Editable?) {}
         })
 
-        // Configurer la sélection d'élément
         destinationField.setOnItemClickListener { parent, _, position, _ ->
             val place = parent.getItemAtPosition(position) as PlaceAutocomplete
             val placeText = place.fullText.toString()
-
-            // Annuler toute recherche en cours
             searchJob?.cancel()
-
-            // Appliquer la sélection de manière sécurisée
             destinationField.safelySetPlace(placesAdapter, place) { it.fullText.toString() }
-
-            // Notifier l'activité de la sélection
             onPlaceSelected(placeText)
         }
     }
@@ -97,7 +87,6 @@ class PlaceAutocompleteManager(
         }
     }
 
-    // Classe adaptateur modifiée pour utiliser la class externe
     inner class PlacesAdapter(context: Context) : ArrayAdapter<PlaceAutocomplete>(
         context, android.R.layout.simple_dropdown_item_1line
     ) {
@@ -131,32 +120,27 @@ class PlaceAutocompleteManager(
         }
     }
 
-    // Extension function pour gérer la sélection sécurisée
     @SuppressLint("ServiceCast")
     fun <T> AutoCompleteTextView.safelySetPlace(
         adapter: ArrayAdapter<T>,
         item: T,
         toDisplayText: (T) -> String
     ) {
-        // Supprimer temporairement l'adapter
         this.setAdapter(null)
 
-        // Appliquer le texte de manière sécurisée
         val text = toDisplayText(item)
         this.setText(text)
         this.setSelection(text.length)
 
-        // Fermer dropdown et clavier
         this.dismissDropDown()
         this.clearFocus()
 
         val imm = this.context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.hideSoftInputFromWindow(this.windowToken, 0)
 
-        // Réattacher l'adapter plus tard pour éviter que la popup revienne
         this.postDelayed({
             this.setAdapter(adapter)
-            this.dismissDropDown() // couche de sécurité
-        }, 400)
+            this.dismissDropDown()
+        }, 420)
     }
 }

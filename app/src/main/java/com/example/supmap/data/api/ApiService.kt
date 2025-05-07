@@ -1,7 +1,5 @@
 package com.example.supmap.data.api
 
-import com.example.supmap.data.repository.AuthService
-import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.POST
 

@@ -7,37 +7,29 @@ object NavigationIconUtils {
 
     fun getNavigationIconResource(sign: Int): Int {
         return when (sign) {
-            // U-turns
-            -98 -> R.drawable.u_ic_turn_left // U-turn (sens inconnu)
-            -8 -> R.drawable.u_ic_turn_left  // U-turn gauche
-            8 -> R.drawable.u_ic_turn_right  // U-turn droite
+            -98 -> R.drawable.u_ic_turn_left
+            -8 -> R.drawable.u_ic_turn_left
+            8 -> R.drawable.u_ic_turn_right
 
-            // Keep left / right
-            -7 -> R.drawable.u_ic_turn_slight_left // keep left
-            7 -> R.drawable.u_ic_turn_slight_right // keep right
+            -7 -> R.drawable.u_ic_turn_slight_left
+            7 -> R.drawable.u_ic_turn_slight_right
 
-            // Sharp / normal / slight LEFT
-            -3 -> R.drawable.u_ic_turn_sharp_left  // sharp left
-            -2 -> R.drawable.u_ic_turn_left        // left
-            -1 -> R.drawable.u_ic_turn_slight_left // slight left
+            -3 -> R.drawable.u_ic_turn_sharp_left
+            -2 -> R.drawable.u_ic_turn_left
+            -1 -> R.drawable.u_ic_turn_slight_left
 
-            // Continue straight
-            0 -> R.drawable.u_ic_turn_straight    // continue on street
+            0 -> R.drawable.u_ic_turn_straight
 
-            // Slight / normal / sharp RIGHT
-            1 -> R.drawable.u_ic_turn_slight_right // slight right
-            2 -> R.drawable.u_ic_turn_right        // right
-            3 -> R.drawable.u_ic_turn_sharp_right  // sharp right
+            1 -> R.drawable.u_ic_turn_slight_right
+            2 -> R.drawable.u_ic_turn_right
+            3 -> R.drawable.u_ic_turn_sharp_right
 
-            // Special points
-            4 -> R.drawable.ic_flag             // finish instruction
-            5 -> R.drawable.u_ic_place         // via point
+            4 -> R.drawable.ic_flag
+            5 -> R.drawable.u_ic_place
 
-            // Roundabout
-            6 -> R.drawable.u_ic_sync // enter roundabout
+            6 -> R.drawable.u_ic_sync
 
-            // Default
-            else -> R.drawable.ic_navigation     // default icon
+            else -> R.drawable.ic_navigation
         }
     }
 }

@@ -16,7 +16,6 @@ suspend fun getUserInfo(
         try {
             val url = "http://10.0.2.2:8080/api/user/info"
 
-            // Formater correctement le token
             val formattedToken = if (token.startsWith("Bearer ", ignoreCase = true)) {
                 token
             } else {

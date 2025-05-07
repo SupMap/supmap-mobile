@@ -49,7 +49,6 @@ class LoginViewModel(private val authService: AuthService) : ViewModel() {
         _loginState.value = LoginState.Idle
     }
 
-    // Factory pour la création du ViewModel avec dépendances
     class Factory(private val context: Context) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {

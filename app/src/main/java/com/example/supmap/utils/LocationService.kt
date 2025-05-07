@@ -82,10 +82,8 @@ class LocationService(private val context: Context) {
                 Manifest.permission.ACCESS_FINE_LOCATION
             ) == PackageManager.PERMISSION_GRANTED
         ) {
-            // Arrêter les mises à jour standard
             fusedLocationClient.removeLocationUpdates(standardLocationCallback)
 
-            // Démarrer les mises à jour navigation
             fusedLocationClient.requestLocationUpdates(
                 locationRequest,
                 navigationLocationCallback,
@@ -97,10 +95,8 @@ class LocationService(private val context: Context) {
     fun stopNavigationLocationUpdates() {
         if (!hasLocationPermission()) return
 
-        // Arrêter les mises à jour de navigation
         fusedLocationClient.removeLocationUpdates(navigationLocationCallback)
 
-        // Redémarrer les mises à jour standard
         startLocationUpdates()
     }
 

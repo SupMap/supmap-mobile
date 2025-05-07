@@ -11,7 +11,6 @@ import com.example.supmap.R
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
-import java.util.Date
 
 class RouteOptionsAdapter(
     private var routes: List<RouteOption>,
@@ -55,7 +54,6 @@ class RouteOptionsAdapter(
         private val distanceText: TextView = itemView.findViewById(R.id.routeDistanceText)
 
         fun bind(route: RouteOption, isSelected: Boolean) {
-            // Formater la durée
             val timeMin = (route.path.time / 60000).toInt()
             val hours = timeMin / 60
             val minutes = timeMin % 60
@@ -66,13 +64,11 @@ class RouteOptionsAdapter(
             }
             durationText.text = formattedDuration
 
-            // Calculer l'heure d'arrivée
             val calendar = Calendar.getInstance()
             calendar.add(Calendar.MILLISECOND, route.path.time.toInt())
             val formatter = SimpleDateFormat("HH:mm", Locale.getDefault())
             arrivalText.text = "Arrivée à ${formatter.format(calendar.time)}"
 
-            // Définir le badge du type d'itinéraire
             typeLabel.text = when (route.type) {
                 "fastest" -> "⭐️ ${route.label}"
                 "noToll" -> "🚫🧾 ${route.label}"
@@ -80,14 +76,11 @@ class RouteOptionsAdapter(
                 else -> route.label
             }
 
-            // Définir la description (texte de la première instruction ou vide)
             descriptionText.text = route.path.instructions?.firstOrNull()?.text ?: ""
 
-            // Formater la distance
             val distanceKm = (route.path.distance / 1000).toDouble()
             distanceText.text = String.format("%.1f km", distanceKm)
 
-            // Mettre en évidence l'itinéraire sélectionné
             if (isSelected) {
                 cardView.setCardBackgroundColor(
                     ContextCompat.getColor(

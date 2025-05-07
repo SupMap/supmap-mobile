@@ -37,7 +37,6 @@ fun InscriptionScreen(
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
 
-    // Gérer les changements d'état
     LaunchedEffect(registerState) {
         when (registerState) {
             is RegisterState.Loading -> {
@@ -70,7 +69,6 @@ fun InscriptionScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Logo SUPMAP
         Image(
             painter = painterResource(id = R.drawable.logobleu),
             contentDescription = "Logo SupMap",
@@ -79,7 +77,6 @@ fun InscriptionScreen(
                 .padding(bottom = 20.dp)
         )
 
-        // Titre
         Text(
             text = "Bienvenue parmi nous !",
             fontSize = 22.sp,
@@ -90,7 +87,6 @@ fun InscriptionScreen(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Champs de saisie
         CustomTextField(
             value = username,
             onValueChange = { username = it },
@@ -112,7 +108,6 @@ fun InscriptionScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Bouton d'inscription
         Button(
             onClick = {
                 viewModel.register(username, firstName, lastName, email, password)
@@ -134,7 +129,6 @@ fun InscriptionScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Lien vers la connexion
         Text(
             text = "Vous possédez déjà un compte ?",
             color = Color.Black,
