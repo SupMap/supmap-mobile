@@ -119,7 +119,7 @@ class RouteOptionsAdapter(
                 typeLabel.setTextColor(
                     ContextCompat.getColor(
                         itemView.context,
-                        android.R.color.white
+                        android.R.color.black
                     )
                 )
             } else {
