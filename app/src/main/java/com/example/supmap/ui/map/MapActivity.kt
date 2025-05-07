@@ -47,6 +47,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.widget.ImageView
 import androidx.annotation.DrawableRes
 import androidx.core.content.ContextCompat
 import com.example.supmap.data.api.IncidentDto
@@ -58,6 +59,7 @@ import java.util.Date
 import java.util.Timer
 import java.util.TimerTask
 import android.widget.PopupWindow
+import com.example.supmap.utils.NavigationIconUtils
 
 class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -377,7 +379,9 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         lifecycleScope.launch {
             viewModel.currentNavigation.collectLatest { navState ->
                 if (navState != null) {
+                    // Mise à jour de l'instruction principale et de la distance
                     navigationInstructionText.text = navState.currentInstruction
+
                     val formattedDistance = if (navState.distanceToNext >= 1000) {
                         String.format("%.1f km", navState.distanceToNext / 1000)
                     } else {
@@ -385,13 +389,27 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                     }
                     navigationDistanceText.text = formattedDistance
 
+                    // Mise à jour de l'icône de direction - AJOUTEZ CE CODE
+                    val directionIconView = findViewById<ImageView>(R.id.directionIconView)
+                    val iconResource = NavigationIconUtils.getNavigationIconResource(navState.sign)
+                    directionIconView.setImageResource(iconResource)
+
+                    // Gestion de la prochaine instruction
                     if (navState.nextInstruction != null) {
                         nextInstructionContainer.visibility = View.VISIBLE
                         nextInstructionText.text = "Ensuite : ${navState.nextInstruction}"
+
+                        // Accédez à l'ImageView par son ID
+                        val nextDirectionIconView =
+                            findViewById<ImageView>(R.id.nextDirectionIconView)
+                        val nextIconResource =
+                            NavigationIconUtils.getNavigationIconResource(navState.nextSign)
+                        nextDirectionIconView.setImageResource(nextIconResource)
                     } else {
                         nextInstructionContainer.visibility = View.GONE
                     }
 
+                    // Si destination atteinte
                     if (navState.isDestinationReached) {
                         Toast.makeText(this@MapActivity, "Destination atteinte!", Toast.LENGTH_LONG)
                             .show()
@@ -460,7 +478,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         // Afficher les éléments du mode navigation
         navigationModeContainer.visibility = View.VISIBLE
         bottomNavigationCard.visibility = View.VISIBLE
-        
+
         // Récupérer le temps de parcours de l'itinéraire sélectionné
         val selectedRouteIndex = viewModel.uiState.value.selectedRouteIndex
         val selectedRoute = viewModel.uiState.value.availableRoutes.getOrNull(selectedRouteIndex)

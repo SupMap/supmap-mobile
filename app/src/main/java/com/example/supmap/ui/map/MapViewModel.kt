@@ -100,7 +100,9 @@ class MapViewModel(
         val currentInstruction: String,
         val distanceToNext: Double,
         val nextInstruction: String?,
-        val isDestinationReached: Boolean = false
+        val isDestinationReached: Boolean = false,
+        val sign: Int = 0,
+        val nextSign: Int = 0
     )
 
     private val _currentNavigation = MutableStateFlow<NavigationState?>(null)
@@ -470,7 +472,14 @@ class MapViewModel(
                     dist: Double,
                     next: Instruction?
                 ) {
-                    _currentNavigation.value = NavigationState(instr.text, dist, next?.text)
+                    _currentNavigation.value = NavigationState(
+                        instr.text,
+                        dist,
+                        next?.text,
+                        false,
+                        instr.sign,
+                        next?.sign ?: 0
+                    )
                 }
 
                 override fun onDestinationReached() {
