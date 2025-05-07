@@ -7,7 +7,6 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.supmap.data.api.IncidentApiClient
 import com.example.supmap.data.api.IncidentDto
 import com.example.supmap.data.api.IncidentRequest
 import com.example.supmap.data.api.Instruction
@@ -16,6 +15,7 @@ import com.example.supmap.data.repository.DirectionsRepository
 import com.example.supmap.data.repository.IncidentRepository
 import com.example.supmap.util.LocationService
 import com.google.android.gms.maps.model.LatLng
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -94,6 +94,12 @@ class MapViewModel(
     private var lastCreatedIncidentLocation: LatLng? = null
     private var lastCreatedIncidentTime: Long = 0
     private val ratedIncidentIds = mutableSetOf<Long>()
+
+    // Pour suivre les incidents déjà connus afin de détecter les nouveaux
+    private val knownIncidentIds = mutableSetOf<Long>()
+
+    // Job pour la vérification périodique
+    private var incidentCheckJob: Job? = null
 
     // --- Navigation State ---
     data class NavigationState(
@@ -186,7 +192,7 @@ class MapViewModel(
                     incidentLatLng.latitude, incidentLatLng.longitude
                 )
 
-                if (distance <= 20 && _incidentToRate.value == null) {
+                if (distance <= 15 && _incidentToRate.value == null) {
                     _incidentToRate.value = incident
                     break
                 }
@@ -414,6 +420,152 @@ class MapViewModel(
         ratedIncidentIds.clear()
     }
 
+    /**
+     * Mémorise les identifiants des incidents actuellement connus
+     */
+    private fun initializeKnownIncidents() {
+        Log.d("MapViewModel", "Initialisation des ${_incidents.value.size} incidents connus")
+        knownIncidentIds.clear()
+        _incidents.value.forEach { incident ->
+            knownIncidentIds.add(incident.id)
+        }
+    }
+
+    /**
+     * Démarre la vérification périodique des incidents sur le trajet
+     */
+    private fun startIncidentChecking() {
+        incidentCheckJob?.cancel()
+        incidentCheckJob = viewModelScope.launch {
+            while (isActive && _uiState.value.isNavigationMode) {
+                delay(30000) // Vérifier toutes les 30 secondes
+                checkForNewIncidentsOnRoute()
+            }
+        }
+    }
+
+    /**
+     * Vérifie si de nouveaux incidents sont apparus sur notre itinéraire
+     * et recalcule si nécessaire
+     */
+    private suspend fun checkForNewIncidentsOnRoute() {
+        // Ne rien faire s'il n'y a pas d'itinéraire actif
+        if (!_uiState.value.isNavigationMode || _uiState.value.routePoints.isEmpty()) {
+            return
+        }
+
+        try {
+            // 1) Charger les incidents à jour
+            val freshIncidents = incidentRepository.fetchAllIncidents()
+
+            // 2) Identifier les nouveaux incidents
+            val newIncidents = freshIncidents.filter { incident ->
+                !knownIncidentIds.contains(incident.id)
+            }
+
+            if (newIncidents.isNotEmpty()) {
+                Log.d("MapViewModel", "Détection de ${newIncidents.size} nouveaux incidents")
+
+                // 3) Vérifier si au moins un incident est sur notre itinéraire
+                val routePoints = _uiState.value.routePoints
+                val incidentOnRoute = newIncidents.any { incident ->
+                    isIncidentOnRoute(incident, routePoints)
+                }
+
+                if (incidentOnRoute) {
+                    Log.d("MapViewModel", "Nouvel incident détecté sur l'itinéraire, recalcul...")
+                    // 4) Recalculer l'itinéraire
+                    val destination = _uiState.value.currentDestination
+                    if (destination.isNotEmpty()) {
+                        calculateRoute(destination, isRecalculation = true)
+                    }
+                }
+            }
+
+            // 5) Mettre à jour la liste des incidents connus
+            _incidents.value = freshIncidents
+            freshIncidents.forEach { incident ->
+                knownIncidentIds.add(incident.id)
+            }
+
+        } catch (e: Exception) {
+            Log.e("MapViewModel", "Erreur lors de la vérification des incidents sur le trajet", e)
+        }
+    }
+
+    /**
+     * Détermine si un incident est sur ou proche de l'itinéraire
+     */
+    private fun isIncidentOnRoute(incident: IncidentDto, routePoints: List<LatLng>): Boolean {
+        val incidentPoint = LatLng(incident.latitude, incident.longitude)
+
+        // Parcourir les segments de l'itinéraire
+        for (i in 0 until routePoints.size - 1) {
+            val start = routePoints[i]
+            val end = routePoints[i + 1]
+
+            // Calculer la distance entre l'incident et ce segment
+            val distance = distanceToSegment(incidentPoint, start, end)
+
+            // Si l'incident est à moins de 30 mètres du trajet, considérer qu'il est sur la route
+            if (distance < 30) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    /**
+     * Calcule la distance minimale entre un point et un segment de route
+     */
+    private fun distanceToSegment(point: LatLng, segmentStart: LatLng, segmentEnd: LatLng): Double {
+        val x = point.latitude
+        val y = point.longitude
+        val x1 = segmentStart.latitude
+        val y1 = segmentStart.longitude
+        val x2 = segmentEnd.latitude
+        val y2 = segmentEnd.longitude
+
+        val A = x - x1
+        val B = y - y1
+        val C = x2 - x1
+        val D = y2 - y1
+
+        val dot = A * C + B * D
+        val lenSq = C * C + D * D
+        var param = -1.0
+
+        if (lenSq != 0.0) {
+            param = dot / lenSq
+        }
+
+        var xx: Double
+        var yy: Double
+
+        if (param < 0) {
+            xx = x1
+            yy = y1
+        } else if (param > 1) {
+            xx = x2
+            yy = y2
+        } else {
+            xx = x1 + param * C
+            yy = y1 + param * D
+        }
+
+        // Conversion en distance réelle en mètres
+        return haversineDistance(x, y, xx, yy) // Réutilisation de votre méthode haversineDistance
+    }
+
+    /**
+     * Arrête la vérification périodique des incidents
+     */
+    private fun stopIncidentChecking() {
+        incidentCheckJob?.cancel()
+        incidentCheckJob = null
+    }
+
     /** Crée les segments pour les instructions */
     private fun createRouteSegments(
         points: List<LatLng>,
@@ -496,6 +648,13 @@ class MapViewModel(
         }
         _uiState.update { it.copy(isNavigationMode = true) }
         locationService.startNavigationLocationUpdates()
+
+        // Initialiser les incidents connus au début de la navigation
+        initializeKnownIncidents()
+
+        // Démarrer la vérification périodique des incidents
+        startIncidentChecking()
+
         viewModelScope.launch {
             locationService.locationFlow
                 .filterNotNull()
@@ -561,9 +720,13 @@ class MapViewModel(
         _currentNavigation.value = null
         _uiState.update { it.copy(isNavigationMode = false) }
         locationService.stopNavigationLocationUpdates()
+
+        // Arrêter la vérification des incidents
+        stopIncidentChecking()
+
         resetRatedIncidents()
-        lastCreatedIncidentLocation = null  // Ajoutez cette ligne
-        lastCreatedIncidentTime = 0         // Ajoutez cette ligne
+        lastCreatedIncidentLocation = null
+        lastCreatedIncidentTime = 0
     }
 
     override fun onCleared() {
