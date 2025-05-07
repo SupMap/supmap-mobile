@@ -18,14 +18,9 @@ class AuthService(private val context: Context) {
     suspend fun login(email: String, password: String): Result<String> {
         return withContext(Dispatchers.IO) {
             try {
-                Log.d("AuthService", "Tentative de connexion avec: $email")
                 val request = LoginRequest(email, password)
                 val response = apiService.login(request)
-
                 val token = response.token
-                Log.d("AuthService", "Connexion réussie, token reçu")
-
-                // Normaliser et stocker le token
                 val cleanToken = if (token.trim().startsWith("Bearer", ignoreCase = true)) {
                     token.trim().substring(7).trim()
                 } else {
@@ -50,7 +45,6 @@ class AuthService(private val context: Context) {
     ): Result<Boolean> {
         return withContext(Dispatchers.IO) {
             try {
-                Log.d("AuthService", "Tentative d'inscription pour: $email")
                 val request = RegisterRequest(
                     username = username,
                     name = firstName,
@@ -60,10 +54,8 @@ class AuthService(private val context: Context) {
                 )
 
                 apiService.register(request)
-                Log.d("AuthService", "Inscription réussie")
                 Result.success(true)
             } catch (e: Exception) {
-                Log.e("AuthService", "Erreur lors de l'inscription", e)
                 Result.failure(e)
             }
         }

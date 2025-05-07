@@ -1,8 +1,6 @@
 package com.example.supmap.data.repository
 
 import android.content.Context
-import android.content.SharedPreferences
-import android.util.Log
 import com.example.supmap.data.api.DirectionsApiClient
 import com.example.supmap.data.api.DirectionsApiService
 import com.example.supmap.data.api.Instruction
@@ -11,14 +9,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.example.supmap.data.api.DirectionsResponse
 import com.example.supmap.data.api.NetworkModule
+import com.example.supmap.data.local.UserPreferences
 
 class DirectionsRepository(private val context: Context) {
-
-    private val sharedPreferences: SharedPreferences =
-        context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
-
-    private val TAG = "DirectionsRepo"
-
+    private val userPreferences = UserPreferences(context)
     private val directionsService = NetworkModule.createService<DirectionsApiService>()
 
     suspend fun getDirections(
@@ -32,18 +26,16 @@ class DirectionsRepository(private val context: Context) {
                 val destinationString = "${destination.latitude},${destination.longitude}"
 
                 val apiMode = convertTravelMode(mode)
+                val token = userPreferences.authToken.value ?: ""
 
-                val token = sharedPreferences.getString("auth_token", "") ?: ""
+                if (token.isBlank()) {
+                    return@withContext null
+                }
 
                 val authHeader = if (token.trim().startsWith("Bearer", ignoreCase = true)) {
                     token.trim()
                 } else {
                     "Bearer $token"
-                }
-                Log.d(TAG, "Header final: '$authHeader'")
-
-                if (token.isBlank()) {
-                    return@withContext null
                 }
 
                 val response = DirectionsApiClient.service.getDirections(
@@ -55,7 +47,6 @@ class DirectionsRepository(private val context: Context) {
 
                 if (response.isSuccessful) {
                     val directionsResponse = response.body()
-
                     val routeData = directionsResponse?.fastest
 
                     if (routeData != null && !routeData.paths.isNullOrEmpty()) {
@@ -64,17 +55,12 @@ class DirectionsRepository(private val context: Context) {
                             directionsResponse!!,
                             path.instructions ?: emptyList()
                         )
-                    } else {
-                        Log.e(TAG, "Pas de chemin trouvé dans la réponse")
-                    }
-                } else {
-                    if (response.code() == 401) {
-                        Log.e(TAG, "Erreur d'authentification (401) - Token invalide ou expiré")
                     }
                 }
+
+                // Si aucune condition de succès n'est remplie
                 null
             } catch (e: Exception) {
-                Log.e(TAG, "Exception lors de l'appel API", e)
                 null
             }
         }
@@ -98,15 +84,10 @@ class DirectionsRepository(private val context: Context) {
                     val directionsResponse = response.body()
                     if (directionsResponse != null) {
                         return@withContext Pair(directionsResponse, "")
-                    } else {
-                        Log.e("DirectionsRepo", "Corps de réponse vide")
                     }
-                } else {
-                    Log.e("DirectionsRepo", "Échec API: ${response.code()} - ${response.message()}")
                 }
                 null
             } catch (e: Exception) {
-                Log.e("DirectionsRepo", "Exception lors de la récupération du trajet", e)
                 null
             }
         }

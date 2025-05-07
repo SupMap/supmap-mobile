@@ -1,7 +1,6 @@
 package com.example.supmap.ui.auth
 
-import android.content.Context
-import android.util.Log
+import com.example.supmap.data.api.ApiConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -9,13 +8,11 @@ import okhttp3.Request
 import org.json.JSONObject
 
 suspend fun getUserInfo(
-    context: Context,
     token: String
 ): UserInfo? {
     return withContext(Dispatchers.IO) {
         try {
-            val url = "http://10.0.2.2:8080/api/user/info"
-
+            val url = ApiConfig.BASE_URL + "user/info"
             val formattedToken = if (token.startsWith("Bearer ", ignoreCase = true)) {
                 token
             } else {
@@ -42,15 +39,9 @@ suspend fun getUserInfo(
                     email = jsonObject.optString("email", "")
                 )
             } else {
-                Log.e(
-                    "API",
-                    "Erreur HTTP ${response.code}: ${responseBody ?: "Pas de corps dans la réponse"}"
-                )
                 return@withContext null
             }
         } catch (e: Exception) {
-            Log.e("API", "Erreur réseau lors de la récupération des infos utilisateur", e)
-            e.printStackTrace()
             return@withContext null
         }
     }

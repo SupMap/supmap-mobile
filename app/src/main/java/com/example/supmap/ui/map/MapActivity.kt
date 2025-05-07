@@ -1,7 +1,6 @@
 package com.example.supmap.ui.map
 
 import android.app.Dialog
-import android.content.Context
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.os.Bundle
@@ -60,7 +59,6 @@ import java.util.Date
 import java.util.Timer
 import java.util.TimerTask
 import android.widget.PopupWindow
-import com.example.supmap.data.api.NetworkModule
 import com.example.supmap.data.local.UserPreferences
 import com.example.supmap.data.repository.DirectionsRepository
 import com.example.supmap.utils.NavigationIconUtils
@@ -764,7 +762,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         if (token != null) {
             lifecycleScope.launch {
                 try {
-                    val userInfo = getUserInfo(this@MapActivity, token)
+                    val userInfo = getUserInfo(token)
                     if (userInfo != null) {
                         userNameText.text = "Nom: ${userInfo.name} ${userInfo.secondName}"
                         userUsernameText.text = "Pseudonyme: ${userInfo.username}"
