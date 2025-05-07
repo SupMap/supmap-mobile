@@ -1,6 +1,5 @@
 package com.example.supmap.ui.map
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.text.Editable
 import android.text.TextWatcher
@@ -120,7 +119,6 @@ class PlaceAutocompleteManager(
         }
     }
 
-    @SuppressLint("ServiceCast")
     fun <T> AutoCompleteTextView.safelySetPlace(
         adapter: ArrayAdapter<T>,
         item: T,

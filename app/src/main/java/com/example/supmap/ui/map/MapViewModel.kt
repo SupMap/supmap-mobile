@@ -392,7 +392,6 @@ class MapViewModel(
             freshIncidents.forEach { incident ->
                 knownIncidentIds.add(incident.id)
             }
-
         } catch (e: Exception) {
         }
     }
