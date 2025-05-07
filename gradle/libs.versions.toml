@@ -24,6 +24,22 @@ androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-toolin
 androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
+firebase-auth-ktx = "com.google.firebase:firebase-auth-ktx:22.3.0"
+play-services-auth = "com.google.android.gms:play-services-auth:20.7.0"
+retrofit2-scalars = "com.squareup.retrofit2:converter-scalars:2.9.0"
+places = "com.google.android.libraries.places:places:3.3.0"
+viewmodel-compose = "androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2"
+play-services-maps = "com.google.android.gms:play-services-maps:18.1.0"
+maps-utils = "com.google.maps.android:android-maps-utils:2.3.0"
+maps-services = "com.google.maps:google-maps-services:2.1.2"
+slf4j-simple = "org.slf4j:slf4j-simple:1.7.32"
+osmdroid = "org.osmdroid:osmdroid-android:6.1.14"
+play-services-location = "com.google.android.gms:play-services-location:21.0.1"
+splashscreen = "androidx.core:core-splashscreen:1.0.0-beta01"
+material = "com.google.android.material:material:1.9.0"
+retrofit2 = "com.squareup.retrofit2:retrofit:2.9.0"
+retrofit2-gson = "com.squareup.retrofit2:converter-gson:2.9.0"
+gson = "com.google.code.gson:gson:2.8.8"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
