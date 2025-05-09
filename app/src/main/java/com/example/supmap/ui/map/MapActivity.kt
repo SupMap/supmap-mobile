@@ -62,6 +62,7 @@ import android.widget.PopupWindow
 import com.example.supmap.data.local.UserPreferences
 import com.example.supmap.data.repository.DirectionsRepository
 import com.example.supmap.utils.NavigationIconUtils
+import com.google.android.gms.maps.model.Marker
 
 class MapActivity : AppCompatActivity(), OnMapReadyCallback {
 
@@ -96,6 +97,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var userPreferences: UserPreferences
     private var incidentRatingDialog: Dialog? = null
     private var incidentRatingTimeoutJob: Job? = null
+    private val incidentMarkers = mutableListOf<Marker>()
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -586,20 +588,29 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun displayIncidentsOnMap() {
+        // Supprimer tous les marqueurs d'incidents existants
+        incidentMarkers.forEach { it.remove() }
+        incidentMarkers.clear()
+
         val incidents = viewModel.incidents.value
         incidents.forEach { dto ->
             val pos = LatLng(dto.latitude, dto.longitude)
             val iconRes = IncidentTypeProvider.allTypes
-                .find { it.id == dto.id }
+                .find { it.id == dto.typeId }  // Utilisation de typeId au lieu de id
                 ?.iconRes
                 ?: R.drawable.ic_incident_report
 
-            googleMap.addMarker(
+            val marker = googleMap.addMarker(
                 MarkerOptions()
                     .position(pos)
                     .icon(getBitmapDescriptorFromVector(iconRes))
                     .title(dto.typeName)
             )
+
+            // Ajouter le marqueur à notre liste pour pouvoir le supprimer plus tard
+            if (marker != null) {
+                incidentMarkers.add(marker)
+            }
         }
     }
 
@@ -809,20 +820,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         lifecycleScope.launchWhenStarted {
             viewModel.incidents.collect { list ->
                 displayIncidentsOnMap()
-                list.forEach { dto ->
-                    val pos = LatLng(dto.latitude, dto.longitude)
-                    val iconRes = IncidentTypeProvider.allTypes
-                        .find { it.id == dto.id }
-                        ?.iconRes
-                        ?: R.drawable.ic_incident_report
-
-                    googleMap.addMarker(
-                        MarkerOptions()
-                            .position(pos)
-                            .icon(getBitmapDescriptorFromVector(iconRes))
-                            .title(dto.typeName)
-                    )
-                }
             }
         }
     }
