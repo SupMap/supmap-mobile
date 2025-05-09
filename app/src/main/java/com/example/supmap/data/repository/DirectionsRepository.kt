@@ -57,8 +57,6 @@ class DirectionsRepository(private val context: Context) {
                         )
                     }
                 }
-
-                // Si aucune condition de succès n'est remplie
                 null
             } catch (e: Exception) {
                 null

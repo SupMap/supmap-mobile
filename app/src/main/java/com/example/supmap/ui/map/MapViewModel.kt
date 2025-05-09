@@ -210,10 +210,7 @@ class MapViewModel(
             val success = incidentRepository.createIncident(req)
 
             if (success) {
-                // Ajouter l'incident à userCreatedIncidentIds
                 userCreatedIncidentIds.add(id)
-
-                // Stocker également la position de l'incident pour une vérification supplémentaire
                 lastCreatedIncidentLocation = LatLng(loc.latitude, loc.longitude)
                 lastCreatedIncidentTime = System.currentTimeMillis()
 
@@ -376,11 +373,8 @@ class MapViewModel(
         try {
             val freshIncidents = incidentRepository.fetchAllIncidents()
             val newIncidents = freshIncidents.filter { incident ->
-                // Vérifier que l'incident n'est pas déjà connu
                 !knownIncidentIds.contains(incident.id) &&
-                        // Vérifier qu'il n'a pas été créé par l'utilisateur (par ID)
                         !userCreatedIncidentIds.contains(incident.typeId) &&
-                        // Vérification supplémentaire par position (au cas où l'ID ne correspondrait pas)
                         !isUserCreatedIncidentByLocation(incident)
             }
 
@@ -403,23 +397,20 @@ class MapViewModel(
                 knownIncidentIds.add(incident.id)
             }
         } catch (e: Exception) {
-            // Gérer l'exception
         }
     }
 
-    // Nouvelle méthode pour vérifier par position
     private fun isUserCreatedIncidentByLocation(incident: IncidentDto): Boolean {
         val lastLoc = lastCreatedIncidentLocation ?: return false
         val lastTime = lastCreatedIncidentTime
         val currentTime = System.currentTimeMillis()
 
-        // Si l'incident a été créé dans les 5 dernières minutes et à moins de 10 mètres de distance
         if (currentTime - lastTime < 5 * 60 * 1000) {
             val distance = GeoUtils.haversineDistance(
                 lastLoc.latitude, lastLoc.longitude,
                 incident.latitude, incident.longitude
             )
-            return distance < 10 // 10 mètres de tolérance
+            return distance < 10
         }
         return false
     }

@@ -35,8 +35,6 @@ class LocationService(private val context: Context) {
         override fun onLocationResult(locationResult: LocationResult) {
             locationResult.lastLocation?.let { location ->
                 _locationFlow.value = location
-
-                // Calculer le bearing si nécessaire
                 var bearingToUse = location.bearing
                 if (lastKnownLocation != null && bearingToUse == 0f) {
                     bearingToUse = lastKnownLocation!!.bearingTo(location)

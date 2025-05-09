@@ -588,7 +588,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun displayIncidentsOnMap() {
-        // Supprimer tous les marqueurs d'incidents existants
         incidentMarkers.forEach { it.remove() }
         incidentMarkers.clear()
 
@@ -596,7 +595,7 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
         incidents.forEach { dto ->
             val pos = LatLng(dto.latitude, dto.longitude)
             val iconRes = IncidentTypeProvider.allTypes
-                .find { it.id == dto.typeId }  // Utilisation de typeId au lieu de id
+                .find { it.id == dto.typeId }
                 ?.iconRes
                 ?: R.drawable.ic_incident_report
 
@@ -606,8 +605,6 @@ class MapActivity : AppCompatActivity(), OnMapReadyCallback {
                     .icon(getBitmapDescriptorFromVector(iconRes))
                     .title(dto.typeName)
             )
-
-            // Ajouter le marqueur à notre liste pour pouvoir le supprimer plus tard
             if (marker != null) {
                 incidentMarkers.add(marker)
             }
